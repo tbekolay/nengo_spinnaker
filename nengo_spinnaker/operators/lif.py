@@ -127,9 +127,10 @@ class EnsembleLIF(object):
                     
                     # Add a new learning rule to the PES region
                     self.pes_region.learning_rules.append(
-                        PESLearningRule(learning_rate=l_type.learning_rate,
-                                        filter_index=filter_index,
-                                        decoder_offset=decoder_offset))
+                        PESLearningRule(
+                            learning_rate=l_type.learning_rate * model.dt,
+                            filter_index=filter_index,
+                            decoder_offset=decoder_offset))
                 else:
                     raise ValueError(
                         "Ensemble %s has incoming modulatory PES "
