@@ -8,7 +8,9 @@ from nengo.utils.builder import full_transform
 from nengo.utils import numpy as npext
 import numpy as np
 
-from .builder import BuiltConnection, InputPort, Model, ObjectPort, spec
+from .builder import (
+    BuiltConnection, InputPort, Model, OutputPort, ObjectPort, spec
+)
 from .ports import EnsembleInputPort
 from .. import operators
 from ..utils import collections as collections_ext
@@ -19,6 +21,24 @@ BuiltEnsemble = collections.namedtuple(
 )
 """Parameters which describe an Ensemble."""
 
+
+@Model.source_getters.register(nengo.Ensemble)
+def get_ensemble_source(model, conn):
+    ens = model.object_operators[conn.pre_obj]
+    
+    # If this connection has a learning rule
+    if conn.learning_rule is not None:
+        # If it is a learning rule which modifies the decoder, source
+        # it from a unique port identified by the learning rule
+        # **TODO** how to detect unsupervised decoder learning rules
+        error_type = conn.learning_rule.learning_rule_type.error_type.lower()
+        if error_type == "decoder":
+            print "Connecting learnt connection to learning rule port"
+            return spec(ObjectPort(ens, conn.learning_rule))
+    
+    # Otherwise, it's a standard connection that can 
+    # be sourced from the standard output port
+    return spec(ObjectPort(ens, OutputPort.standard))
 
 @Model.source_getters.register(nengo.ensemble.Neurons)
 def get_neurons_source(model, connection):
@@ -51,7 +71,33 @@ def get_ensemble_sink(model, connection):
         # Otherwise we just sink into the Ensemble
         return spec(ObjectPort(ens, InputPort.standard))
 
-
+@Model.sink_getters.register(nengo.connection.LearningRule)
+def get_pes_sink(model, connection):
+    # Get the sink learning rule and parent learnt connection
+    learning_rule = connection.post_obj
+    learnt_connection = learning_rule.connection
+    
+    # If the learning rule in question is a decoder learning rule 
+    # i.e. one where this error connection needs to be re-routed 
+    # to the pre-synaptic population
+    error_type = learning_rule.learning_rule_type.error_type.lower()
+    if error_type == "decoder":
+        # If the pre-synaptic population is an ensemble
+        # i.e. something with a decoder to learn
+        if isinstance(learnt_connection.pre_obj, nengo.Ensemble):
+            print "Connecting modulatory connection to pre population %s" % learnt_connection.pre_obj.label
+            ens = model.object_operators[learnt_connection.pre_obj]
+            return spec(ObjectPort(ens, learning_rule))
+        else:
+            raise ValueError(
+                "Cannot learn connections which don't begin at ensembles"
+            )
+    else:
+        raise NotImplementedError(
+            "SpiNNaker does not support connections "
+            "to non-decoder learning rules."
+        )
+    
 @Model.sink_getters.register(nengo.ensemble.Neurons)
 def get_neurons_sink(model, connection):
     """Get the sink for connections into the neurons of an ensemble."""

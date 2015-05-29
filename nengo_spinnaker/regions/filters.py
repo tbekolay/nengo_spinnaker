@@ -7,21 +7,14 @@ from .region import Region
 from nengo_spinnaker.utils.collections import registerabledict
 from nengo_spinnaker.utils import type_casts as tp
 
-
-def make_filter_regions(signals_and_connections, dt, minimise=False,
-                        filter_routing_tag="filter_routing",
-                        index_field="index", width=None):
-    """Create a filter region and a filter routing region from the given
+def make_filters(signals_and_connections, minimise=False, width=None):
+    """Create a list of filters and keyspace routes from the given
     signals and connections.
 
     Parameters
     ----------
     signals_and_connections : {Signal: [Connection, ...], ...}
         Map of signals to the connections they represent.
-    dt : float
-        Simulation timestep.
-    width : int
-        Force all filters to be a given width.
 
     Other Parameters
     ----------------
@@ -49,6 +42,34 @@ def make_filter_regions(signals_and_connections, dt, minimise=False,
                 filters.append(f)
 
             keyspace_routes.append((signal.keyspace, index))
+    
+    return filters, keyspace_routes
+
+def make_filter_regions(signals_and_connections, dt, minimise=False,
+                        filter_routing_tag="filter_routing",
+                        index_field="index", width=None):
+    """Create a filter region and a filter routing region from the given
+    signals and connections.
+
+    Parameters
+    ----------
+    signals_and_connections : {Signal: [Connection, ...], ...}
+        Map of signals to the connections they represent.
+    dt : float
+        Simulation timestep.
+    width : int
+        Force all filters to be a given width.
+
+    Other Parameters
+    ----------------
+    minimise : bool
+        It is possible to reduce the amount of memory and computation required
+        to simulate filters by combining equivalent filters together.  If
+        minimise is `True` then this is done, otherwise not.
+    """
+    # Create filters and keyspaces
+    filters, keyspace_routes = make_filters(signals_and_connections,
+                                            minimise=minimise, width=width)
 
     # Create the regions
     filter_region = FilterRegion(filters, dt)
