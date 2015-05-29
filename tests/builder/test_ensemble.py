@@ -6,7 +6,6 @@ import pytest
 from nengo_spinnaker.builder import builder, ensemble
 from nengo_spinnaker import operators
 
-
 class TestBuildEnsembleLIF(object):
     @pytest.mark.parametrize("n_neurons, size_in", [(100, 1), (300, 4)])
     def test_build_ensemble_lif(self, n_neurons, size_in):
@@ -112,6 +111,44 @@ def test_neurons_source():
     assert source.target.obj is a_ens
     assert source.target.port is ensemble.EnsembleOutputPort.neurons
 
+class TestEnsembleSource(object):
+    def test_normal_source(self):
+         # Create a network and standard model
+        with nengo.Network():
+            a = nengo.Ensemble(100, 2)
+            b = nengo.Ensemble(200, 4)
+
+            a_b = nengo.Connection(a, b[1:3])
+
+        # Create a model with the Ensemble for b in it
+        model = builder.Model()
+        a_ens = operators.EnsembleLIF(a)
+        model.object_operators[a] = a_ens
+
+        source = ensemble.get_ensemble_source(model, a_b)
+        assert source.target.obj is a_ens
+        assert source.target.port is builder.OutputPort.standard
+
+    def test_decoder_learnt_source(self):
+        # Create a network and standard model
+        with nengo.Network():
+            a = nengo.Ensemble(100, 2)
+            b = nengo.Ensemble(100, 2)
+            e = nengo.Ensemble(100, 2)
+
+            a_b = nengo.Connection(a, b)
+            a_b.learning_rule_type = nengo.PES()
+
+            e_l = nengo.Connection(e, a_b.learning_rule)
+
+        # Create a model with the Ensemble for b in it
+        model = builder.Model()
+        a_ens = operators.EnsembleLIF(a)
+        model.object_operators[a] = a_ens
+
+        source = ensemble.get_ensemble_source(model, a_b)
+        assert source.target.obj is a_ens
+        assert source.target.port is a_b.learning_rule
 
 class TestEnsembleSink(object):
     def test_normal_sink(self):
@@ -134,6 +171,31 @@ class TestEnsembleSink(object):
         sink = ensemble.get_ensemble_sink(model, a_b)
         assert sink.target.obj is b_ens
         assert sink.target.port is builder.InputPort.standard
+
+    def test_learning_rule_sink(self):
+        """Test that sinks for most connections into Ensembles do nothing
+        special.
+        """
+        # Create a network and standard model
+        with nengo.Network():
+            a = nengo.Ensemble(100, 2)
+            b = nengo.Ensemble(100, 2)
+            e = nengo.Ensemble(100, 2)
+
+            a_b = nengo.Connection(a, b)
+            a_b.learning_rule_type = nengo.PES()
+
+            e_l = nengo.Connection(e, a_b.learning_rule)
+
+        # Create a model with the Ensemble for b in it
+        model = builder.Model()
+        a_ens = operators.EnsembleLIF(a)
+        model.object_operators[a] = a_ens
+
+        # Get the sink, check that an appropriate target is return
+        sink = ensemble.get_learning_rule_sink(model, e_l)
+        assert sink.target.obj is a_ens
+        assert sink.target.port is a_b.learning_rule
 
     def test_normal_sink_for_passthrough_node(self):
         """Test that sinks for most connections into Ensembles do nothing

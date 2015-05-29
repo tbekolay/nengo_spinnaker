@@ -8,6 +8,66 @@ from nengo_spinnaker.utils.collections import registerabledict
 from nengo_spinnaker.utils import type_casts as tp
 
 
+def add_filters(filters, keyspace_routes, signals_and_connections,
+                minimise=False, width=None):
+    """Add signals and connections to existing lists
+    of filters and keyspace routes
+
+    Parameters
+    ----------
+    signals_and_connections : {Signal: [Connection, ...], ...}
+        Map of signals to the connections they represent.
+
+    Other Parameters
+    ----------------
+    minimise : bool
+        It is possible to reduce the amount of memory and computation required
+        to simulate filters by combining equivalent filters together.  If
+        minimise is `True` then this is done, otherwise not.
+    """
+    for signal, connections in iteritems(signals_and_connections):
+        for connection in connections:
+            # Make the filter
+            f = FilterRegion.supported_filter_types[type(connection.synapse)].\
+                from_signal_and_connection(signal, connection, width=width)
+
+            # Store the filter and add the route
+            for index, g in enumerate(filters):
+                if f == g and minimise:
+                    break
+            else:
+                index = len(filters)
+                filters.append(f)
+            keyspace_routes.append((signal.keyspace, index))
+
+    return filters, keyspace_routes
+
+
+def make_filters(signals_and_connections, minimise=False, width=None):
+    """Create a list of filters and keyspace routes from the given
+    signals and connections.
+
+    Parameters
+    ----------
+    signals_and_connections : {Signal: [Connection, ...], ...}
+        Map of signals to the connections they represent.
+
+    Other Parameters
+    ----------------
+    minimise : bool
+        It is possible to reduce the amount of memory and computation required
+        to simulate filters by combining equivalent filters together.  If
+        minimise is `True` then this is done, otherwise not.
+    """
+    # Create new lists of filters and the routing entries
+    filters = list()
+    keyspace_routes = list()
+
+    # Add signals and connections to lists
+    return add_filters(filters, keyspace_routes, signals_and_connections,
+                       minimise, width)
+
+
 def make_filter_regions(signals_and_connections, dt, minimise=False,
                         filter_routing_tag="filter_routing",
                         index_field="index", width=None):
@@ -30,25 +90,9 @@ def make_filter_regions(signals_and_connections, dt, minimise=False,
         to simulate filters by combining equivalent filters together.  If
         minimise is `True` then this is done, otherwise not.
     """
-    # Build the set of filters and the routing entries
-    filters = list()
-    keyspace_routes = list()
-
-    for signal, connections in iteritems(signals_and_connections):
-        for connection in connections:
-            # Make the filter
-            f = FilterRegion.supported_filter_types[type(connection.synapse)].\
-                from_signal_and_connection(signal, connection, width=width)
-
-            # Store the filter and add the route
-            for index, g in enumerate(filters):
-                if f == g and minimise:
-                    break
-            else:
-                index = len(filters)
-                filters.append(f)
-
-            keyspace_routes.append((signal.keyspace, index))
+    # Create filters and keyspaces
+    filters, keyspace_routes = make_filters(signals_and_connections,
+                                            minimise=minimise, width=width)
 
     # Create the regions
     filter_region = FilterRegion(filters, dt)

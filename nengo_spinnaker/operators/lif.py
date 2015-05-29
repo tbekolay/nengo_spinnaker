@@ -8,15 +8,19 @@ appropriate sized slices.
 
 from bitarray import bitarray
 import collections
-from nengo.base import ObjView
+import nengo
 import numpy as np
 from rig.machine import Cores, SDRAM
 from six import iteritems
 import struct
 
+from nengo.connection import LearningRule
+
 from nengo_spinnaker.builder.builder import InputPort, netlistspec, OutputPort
 from nengo_spinnaker.builder.ports import EnsembleInputPort
-from nengo_spinnaker.regions.filters import make_filter_regions
+from nengo_spinnaker.regions.filters import (
+    make_filter_regions, add_filters, FilterRegion, FilterRoutingRegion
+)
 from .. import regions
 from nengo_spinnaker.netlist import VertexSlice
 from nengo_spinnaker import partition_and_cluster as partition
@@ -66,6 +70,11 @@ class EnsembleLIF(object):
         # Extract all the filters from the incoming connections
         incoming = model.get_signals_connections_to_object(self)
 
+        # Filter out modulatory incoming connections
+        modulatory_incoming = {port: signal
+                               for (port, signal) in iteritems(incoming)
+                               if isinstance(port, LearningRule)}
+
         self.input_filters, self.input_filter_routing = make_filter_regions(
             incoming[InputPort.standard], model.dt, True,
             model.keyspaces.filter_routing_tag, width=self.ensemble.size_in
@@ -74,19 +83,78 @@ class EnsembleLIF(object):
             incoming[EnsembleInputPort.global_inhibition], model.dt, True,
             model.keyspaces.filter_routing_tag, width=1
         )
-        self.mod_filters, self.mod_filter_routing = make_filter_regions(
-            {}, model.dt, True, model.keyspaces.filter_routing_tag
-        )
 
         # Extract all the decoders for the outgoing connections and build the
         # regions for the decoders and the regions for the output keys.
         outgoing = model.get_signals_connections_from_object(self)
         decoders, output_keys = \
             get_decoders_and_keys(model, outgoing[OutputPort.standard], True)
-        size_out = decoders.shape[1]
 
-        # TODO: Include learnt decoders
+        # Create, initially empty, PES region
         self.pes_region = PESRegion()
+
+        # Loop through modulatory incoming connections
+        mod_filters = list()
+        mod_keyspace_routes = list()
+        for (l, m) in iteritems(modulatory_incoming):
+            # Extract the learning rule's types
+            l_type = l.learning_rule_type
+
+            # If this learning rule is PES
+            if isinstance(l_type, nengo.PES):
+                # If a matching outgoing learnt connection is found
+                if l in outgoing:
+                    # Cache what will be this PES rule's
+                    # filter and decoder index
+                    filter_index = len(mod_filters)
+                    decoder_offset = decoders.shape[1]
+
+                    # Create new decoders and output keys for learnt
+                    # connection and add to object's list
+                    learnt_decoders, learnt_output_keys = \
+                        get_decoders_and_keys(model, outgoing[l], False)
+
+                    # If there are no existing decodes, hstacking doesn't
+                    # work so set decoders to new learnt decoder matrix
+                    if decoder_offset == 0:
+                        decoders = learnt_decoders
+                    # Otherwise, stack learnt decoders beneath existing matrix
+                    else:
+                        decoders = np.hstack((decoders, learnt_decoders))
+
+                    output_keys.extend(learnt_output_keys)
+
+                    # Add this connection to lists of
+                    # modulatory filters and routes
+                    mod_filters, mod_keyspace_routes = add_filters(
+                        mod_filters, mod_keyspace_routes, m, minimise=False)
+
+                    # Add a new learning rule to the PES region
+                    # **NOTE** divide learning rate by dt
+                    # to account for activity scaling
+                    self.pes_region.learning_rules.append(
+                        PESLearningRule(
+                            learning_rate=l_type.learning_rate / model.dt,
+                            filter_index=filter_index,
+                            decoder_offset=decoder_offset))
+                else:
+                    raise ValueError(
+                        "Ensemble %s has incoming modulatory PES "
+                        "connection, but no corresponding outgoing "
+                        "learnt connection" % self.ensemble.label
+                    )
+            else:
+                raise NotImplementedError(
+                    "SpiNNaker currently only supports PES learning."
+                )
+
+        # Create modulatory filter and routing regions
+        self.mod_filters = FilterRegion(mod_filters, model.dt)
+        self.mod_filter_routing = FilterRoutingRegion(
+            mod_keyspace_routes, model.keyspaces.filter_routing_tag)
+
+        # Now decoder is fully built, extract size
+        size_out = decoders.shape[1]
 
         self.decoders_region = regions.MatrixRegion(
             tp.np_to_fix(decoders / model.dt),
@@ -227,7 +295,7 @@ class EnsembleLIF(object):
                 else:
                     sample_every = p.sample_every / simulator.dt
 
-                if not isinstance(p.target, ObjView):
+                if not isinstance(p.target, nengo.base.ObjView):
                     neuron_slice = slice(None)
                 else:
                     neuron_slice = p.target.slice
@@ -266,18 +334,35 @@ class SystemRegion(collections.namedtuple(
         )
         fp.write(data)
 
+PESLearningRule = collections.namedtuple(
+    "PESLearningRule", "learning_rate, filter_index, decoder_offset")
+
 
 class PESRegion(regions.Region):
     """Region representing parameters for PES learning rules.
     """
-    # TODO Implement PES
+    def __init__(self):
+        self.learning_rules = []
 
     def sizeof(self, *args):
-        return 4
+        return 4 + (len(self.learning_rules) * 12)
 
     def write_subregion_to_file(self, fp, vertex_slice):
-        # Write out a zero, indicating no PES data
-        fp.write(b"\x00" * 4)
+        # Get length of slice for scaling learning rate
+        n_neurons = float(vertex_slice.stop - vertex_slice.start)
+
+        # Write number of learning rules
+        fp.write(struct.pack("<I", len(self.learning_rules)))
+
+        # Write learning rules
+        for l in self.learning_rules:
+            data = struct.pack(
+                "<3I",
+                tp.value_to_fix(l.learning_rate / n_neurons),
+                l.filter_index,
+                l.decoder_offset
+            )
+            fp.write(data)
 
 
 def get_decoders_and_keys(model, signals_connections, minimise=False):

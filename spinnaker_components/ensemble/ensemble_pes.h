@@ -66,7 +66,7 @@ static inline void pes_neuron_spiked(uint n)
       // Loop through output dimensions and apply PES to decoder values offset by output offset
       for(uint d = 0; d < filtered_input->d_in; d++) 
       {
-        decoder_vector[d + parameters->decoder_output_offset] += (parameters->learning_rate * filtered_error_signal[d]);
+        decoder_vector[d + parameters->decoder_output_offset] -= (parameters->learning_rate * filtered_error_signal[d]);
       }
     }
   }
