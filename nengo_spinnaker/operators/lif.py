@@ -89,18 +89,24 @@ class EnsembleLIF(object):
         decoders, output_keys = \
             get_decoders_and_keys(model, outgoing[OutputPort.standard])
         
+        # Create, initially empty, PES region
+        self.pes_region = PESRegion()
+        
         # Loop through modulatory incoming connections
         mod_filters = list()
         mod_keyspace_routes = list()
         for (l, m) in iteritems(modulatory_incoming):
+            # Extract the learning rule's types
+            l_type = l.learning_rule_type
+            
             # If this learning rule is PES
-            if isinstance(l.learning_rule_type, nengo.PES):
+            if isinstance(l_type, nengo.PES):
                 # If a matching outgoing learnt connection is found
                 if l in outgoing:
                     # Cache what will be this PES rule's 
                     # filter and decoder index
                     filter_index = len(mod_filters)
-                    decoder_index = decoders.shape[1]
+                    decoder_offset = decoders.shape[1]
                     
                     # Create new decoders and output keys for learnt 
                     # connection and add to object's list
@@ -119,7 +125,11 @@ class EnsembleLIF(object):
                     
                     print "Creating %u modulatory filters" % len(mod_filters)
                     
-                    
+                    # Add a new learning rule to the PES region
+                    self.pes_region.learning_rules.append(
+                        PESLearningRule(learning_rate=l_type.learning_rate,
+                                        filter_index=filter_index,
+                                        decoder_offset=decoder_offset))
                 else:
                     raise ValueError(
                         "Ensemble %s has incoming modulatory PES "
@@ -138,9 +148,6 @@ class EnsembleLIF(object):
   
         # Now decoder is fully built, extract size
         size_out = decoders.shape[1]
-        
-        # TODO: Include learnt decoders
-        self.pes_region = PESRegion()
 
         self.decoders_region = regions.MatrixRegion(
             tp.np_to_fix(decoders / model.dt),
@@ -263,18 +270,31 @@ class SystemRegion(collections.namedtuple(
         )
         fp.write(data)
 
+PESLearningRule = collections.namedtuple(
+    "PESLearningRule", "learning_rate, filter_index, decoder_offset")
 
 class PESRegion(regions.Region):
     """Region representing parameters for PES learning rules.
     """
-    # TODO Implement PES
-
+    def __init__(self):
+        self.learning_rules = []
+    
     def sizeof(self, *args):
-        return 4
+        return 4 + (len(self.learning_rules) * 12)
 
     def write_subregion_to_file(self, fp, vertex_slice):
-        # Write out a zero, indicating no PES data
-        fp.write(b"\x00" * 4)
+        # Write number of learning rules
+        fp.write(struct.pack("<I", len(self.learning_rules)))
+        
+        # Write learning rules
+        for l in self.learning_rules:
+            data = struct.pack(
+                "<iII",
+                tp.value_to_fix(l.learning_rate),
+                l.filter_index,
+                l.decoder_offset
+            )
+            fp.write(data)
 
 
 def get_decoders_and_keys(model, signals_connections):
