@@ -17,21 +17,6 @@
 #include <string.h>
 
 //----------------------------------
-// Structs
-//----------------------------------
-struct pes_learning_rule_t
-{
-  // Scalar learning rate (scaled by dt) used in PES decoder delta calculation
-  value_t learning_rate;
-  
-  // Index of the input signal filter that contains error signal
-  uint32_t error_signal_filter_index;
-  
-  // Offset into decoder to apply PES
-  uint32_t decoder_output_offset;
-};
-
-//----------------------------------
 // Global variables
 //----------------------------------
 uint32_t g_num_pes_learning_rules = 0;
