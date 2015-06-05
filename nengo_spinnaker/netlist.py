@@ -1,6 +1,7 @@
 """Higher and lower level netlist items.
 """
 import logging
+import pkg_resources
 import rig.netlist
 from rig import place_and_route  # noqa : F401
 from rig.place_and_route.constraints import ReserveResourceConstraint
@@ -175,7 +176,13 @@ class Netlist(object):
         vertices_resources = {v: v.resources for v in self.vertices}
         nets = [net.as_rig_primitive for net in self.nets]
         constraints = list(flatten(v.constraints for v in self.vertices))
+
+        # Add a constraint to ensure that the monitor processor is never used.
         constraints.append(ReserveResourceConstraint(Cores, slice(0, 1)))
+
+        # Add a constraint so that we can include an application to reinject
+        # dropped packets on every chip.
+        constraints.append(ReserveResourceConstraint(Cores, slice(1, 2)))
 
         return {"vertices_resources": vertices_resources,
                 "nets": nets,
@@ -279,6 +286,15 @@ class Netlist(object):
             vertices_applications, self.placements, self.allocations
         )
         controller.load_application(application_map)
+
+        # Add the reinjection application to the map
+        machine = controller.get_machine()
+        controller.flood_fill_aplx(
+            pkg_resources.resource_filename("nengo_spinnaker",
+                                            "binaries/dump_bounce.aplx"),
+            {(x, y): set([1]) for (x, y) in machine},
+            wait=False
+        )
 
     def before_simulation(self, simulator, n_steps):
         """Prepare the objects in the netlist for a simulation of a given

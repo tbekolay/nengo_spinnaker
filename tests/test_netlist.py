@@ -153,7 +153,8 @@ def test_netlist_to_primitive():
     for cons in args["constraints"]:
         if isinstance(cons, ReserveResourceConstraint):
             assert cons.resource is Cores
-            assert cons.reservation == slice(0, 1)
+            assert (cons.reservation == slice(0, 1) or
+                    cons.reservation == slice(1, 2))
             assert cons.location is None
         else:
             assert cons is vertices[0].constraints[0]
@@ -232,16 +233,21 @@ def test_place_and_route():
                 assert c in constraints
 
             # Assert there is a constraint on not using core 0
-            if isinstance(constraints[0], ReserveResourceConstraint):
-                assert constraints[0].resource is Cores
-                assert constraints[0].reservation == slice(0, 1)
-                assert constraints[0].location is None
-            elif isinstance(constraints[-1], ReserveResourceConstraint):
-                assert constraints[-1].resource is Cores
-                assert constraints[-1].reservation == slice(0, 1)
-                assert constraints[-1].location is None
+            if isinstance(constraints[-2], ReserveResourceConstraint):
+                assert constraints[-2].resource is Cores
+                assert constraints[-2].reservation == slice(0, 1)
+                assert constraints[-2].location is None
             else:
                 assert False, "Missing monitor processor reserving constraint."
+
+            # Assert there is a constraint on not using core 1, we use this for
+            # packet reinjection.
+            if isinstance(constraints[-1], ReserveResourceConstraint):
+                assert constraints[-1].resource is Cores
+                assert constraints[-1].reservation == slice(1, 2)
+                assert constraints[-1].location is None
+            else:
+                assert False, "Missing reinjection processor constraint."
 
             assert placements == {v1: (0, 0), v2a: (0, 1), v2b: (1, 0)}
             assert kwargs == allocater_kwargs
@@ -339,6 +345,7 @@ def test_load_application():
     """
     # Mock controller which will be used to load the model
     controller = mock.Mock(name="controller")
+    controller.get_machine.return_value = machine.Machine(8, 8)
 
     # Create the objects to store in the model
     v1 = netlist.Vertex("test_app", resources={Cores: 1, SDRAM: 400},
@@ -476,12 +483,12 @@ def test_load_application():
         assert load_b.call_count == 1
 
         controller.load_routing_tables.assert_called_once_with(routing_table)
-        controller.load_application.assert_called_once_with({
-            "test_app": {(0, 0): set([0])},
-            "test_app2": {(0, 1): set([9, 10]),
-                          (1, 0): set([9, 10]),
-                          }
-        })
+        assert controller.load_application.call_count == 1
+        app_map = controller.load_application.call_args[0][0]
+        assert app_map["test_app"] == {(0, 0): set([0])}
+        assert app_map["test_app2"] == {(0, 1): set([9, 10]),
+                                        (1, 0): set([9, 10]),
+                                        }
 
         assert model.vertices_memory == sdram_allocs
 
