@@ -45,8 +45,8 @@ bool get_pes(address_t address)
     for(uint32_t l = 0; l < g_num_pes_learning_rules; l++)
     {
       const pes_parameters_t *parameters = &g_pes_learning_rules[l];
-      io_printf(IO_BUF, "\tRule %u, Learning rate:%k, Error signal filter index:%u, Decoder output offset:%u\n", 
-               l, parameters->learning_rate, parameters->error_signal_filter_index, parameters->decoder_output_offset);
+      io_printf(IO_BUF, "\tRule %u, Learning rate:%d, Error signal filter index:%u, Decoder output offset:%u\n", 
+               l, bitslr(parameters->learning_rate), parameters->error_signal_filter_index, parameters->decoder_output_offset);
     }
   }
   return true;
