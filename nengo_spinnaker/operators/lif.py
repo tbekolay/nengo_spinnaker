@@ -113,7 +113,7 @@ class EnsembleLIF(object):
                     # Create new decoders and output keys for learnt 
                     # connection and add to object's list
                     learnt_decoders, learnt_output_keys = \
-                        get_decoders_and_keys(model, outgoing[l])
+                        get_decoders_and_keys(model, outgoing[l], False)
                     
                     decoders = np.hstack((decoders, learnt_decoders))
                     output_keys.extend(learnt_output_keys)
