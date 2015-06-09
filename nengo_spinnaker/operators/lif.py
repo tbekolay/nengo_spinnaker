@@ -114,23 +114,21 @@ class EnsembleLIF(object):
                     # connection and add to object's list
                     learnt_decoders, learnt_output_keys = \
                         get_decoders_and_keys(model, outgoing[l])
-                    print decoders.shape, learnt_decoders.shape
+                    
                     decoders = np.hstack((decoders, learnt_decoders))
                     output_keys.extend(learnt_output_keys)
-                    
-                    print "Creating %u learnt decoders" % learnt_decoders.shape[1]
-                    
+            
                     # Create modulatory filter and add to list
                     filters, keyspace_routes = make_filters(m, minimise=False)
                     mod_filters.extend(filters)
                     mod_keyspace_routes.extend(keyspace_routes)
-                    
-                    print "Creating %u modulatory filters" % len(mod_filters)
-                    
+                
                     # Add a new learning rule to the PES region
+                    # **NOTE** divide learning rate by dt 
+                    # to account for activity scaling
                     self.pes_region.learning_rules.append(
                         PESLearningRule(
-                            learning_rate=l_type.learning_rate * model.dt,
+                            learning_rate=l_type.learning_rate / model.dt,
                             filter_index=filter_index,
                             decoder_offset=decoder_offset))
                 else:
@@ -330,6 +328,9 @@ class PESRegion(regions.Region):
         return 4 + (len(self.learning_rules) * 12)
 
     def write_subregion_to_file(self, fp, vertex_slice):
+        # Get length of slice for scaling learning rate
+        n_neurons = float(vertex_slice.stop - vertex_slice.start)
+        
         # Write number of learning rules
         fp.write(struct.pack("<I", len(self.learning_rules)))
         
@@ -337,7 +338,7 @@ class PESRegion(regions.Region):
         for l in self.learning_rules:
             data = struct.pack(
                 "<iII",
-                tp.value_to_fix(l.learning_rate),
+                tp.value_to_fix(l.learning_rate / n_neurons),
                 l.filter_index,
                 l.decoder_offset
             )
