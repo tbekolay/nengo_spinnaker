@@ -1,3 +1,4 @@
+import itertools
 import nengo
 import numpy as np
 import pytest
@@ -78,17 +79,18 @@ class TestSystemRegion(object):
 
 
 class TestPESRegion(object):
-    def test_dummy(self):
-        """Test the current dummy PES region."""
+    @pytest.mark.parametrize(
+        "n_learning_rules",
+        [0, 1, 2]
+    )
+    def test_sizeof(self, n_learning_rules):
         region = lif.PESRegion()
-        assert region.sizeof() == 4
 
-        # Test writing out
-        fp = tempfile.TemporaryFile()
-        region.write_subregion_to_file(fp, slice(None))
-        fp.seek(0)
-        assert fp.read() == b'\x00' * 4
+        learning_rule = lif.PESLearningRule(1e-4, 1, 2)
+        region.learning_rules.extend(
+            itertools.repeat(learning_rule, n_learning_rules))
 
+        assert region.sizeof() == 4 + (n_learning_rules * 12)
 
 class TestSpikeRegion(object):
     """Spike regions use 1 bit per neuron per timestep but pad each frame to a
