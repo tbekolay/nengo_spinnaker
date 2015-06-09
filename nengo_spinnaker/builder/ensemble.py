@@ -33,7 +33,6 @@ def get_ensemble_source(model, conn):
         # **TODO** how to detect unsupervised decoder learning rules
         error_type = conn.learning_rule.learning_rule_type.error_type.lower()
         if error_type == "decoder":
-            print "Connecting learnt connection to learning rule port"
             return spec(ObjectPort(ens, conn.learning_rule))
     
     # Otherwise, it's a standard connection that can 
@@ -72,7 +71,7 @@ def get_ensemble_sink(model, connection):
         return spec(ObjectPort(ens, InputPort.standard))
 
 @Model.sink_getters.register(nengo.connection.LearningRule)
-def get_pes_sink(model, connection):
+def get_learning_rule_sink(model, connection):
     # Get the sink learning rule and parent learnt connection
     learning_rule = connection.post_obj
     learnt_connection = learning_rule.connection
@@ -85,7 +84,8 @@ def get_pes_sink(model, connection):
         # If the pre-synaptic population is an ensemble
         # i.e. something with a decoder to learn
         if isinstance(learnt_connection.pre_obj, nengo.Ensemble):
-            print "Connecting modulatory connection to pre population %s" % learnt_connection.pre_obj.label
+            # Sink connection into unique port on pre-synaptic 
+            # ensemble identified by learning rule object
             ens = model.object_operators[learnt_connection.pre_obj]
             return spec(ObjectPort(ens, learning_rule))
         else:
