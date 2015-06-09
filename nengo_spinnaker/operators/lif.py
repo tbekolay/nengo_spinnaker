@@ -128,7 +128,7 @@ class EnsembleLIF(object):
                     # Add a new learning rule to the PES region
                     self.pes_region.learning_rules.append(
                         PESLearningRule(
-                            learning_rate=l_type.learning_rate,
+                            learning_rate=l_type.learning_rate * model.dt,
                             filter_index=filter_index,
                             decoder_offset=decoder_offset))
                 else:
@@ -284,19 +284,14 @@ class PESRegion(regions.Region):
         return 4 + (len(self.learning_rules) * 12)
 
     def write_subregion_to_file(self, fp, vertex_slice):
-        n_neurons = float(vertex_slice.stop - vertex_slice.start)
-        
         # Write number of learning rules
         fp.write(struct.pack("<I", len(self.learning_rules)))
         
         # Write learning rules
         for l in self.learning_rules:
-            m = tp.value_to_fract(l.learning_rate / n_neurons)
-            print "LEARNING RATE:%u, %f, %f" % (m, l.learning_rate, l.learning_rate / n_neurons)
-        
             data = struct.pack(
                 "<iII",
-                tp.value_to_fract(l.learning_rate / n_neurons),
+                tp.value_to_fix(l.learning_rate),
                 l.filter_index,
                 l.decoder_offset
             )

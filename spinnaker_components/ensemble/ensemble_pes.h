@@ -27,7 +27,7 @@
 typedef struct pes_parameters_t
 {
   // Scalar learning rate used in PES decoder delta calculation
-  long fract learning_rate;
+  value_t learning_rate;
   
   // Index of the input signal filter that contains error signal
   uint32_t error_signal_filter_index;
@@ -54,7 +54,7 @@ static inline void pes_neuron_spiked(uint n)
   for(uint32_t l = 0; l < g_num_pes_learning_rules; l++)
   {
     const pes_parameters_t *parameters = &g_pes_learning_rules[l];
-    if(bitslr(parameters->learning_rate) > 0)
+    if(parameters->learning_rate > 0.0k)
     {
       // Extract error signal vector from 
       const filtered_input_buffer_t *filtered_input = g_input_modulatory.filters[parameters->error_signal_filter_index];
@@ -66,10 +66,7 @@ static inline void pes_neuron_spiked(uint n)
       // Loop through output dimensions and apply PES to decoder values offset by output offset
       for(uint d = 0; d < filtered_input->d_in; d++) 
       {
-        // Perform 64-bit integer multiply of  learning rate and error signal
-        int64_t mul = (int64_t)bitslr(parameters->learning_rate) * (int64_t)bitsk(filtered_error_signal[d]);
-        int32_t delta = (int32_t)(mul >> 31);
-        decoder_vector[d + parameters->decoder_output_offset] -= kbits(delta);
+        decoder_vector[d + parameters->decoder_output_offset] -= (parameters->learning_rate * filtered_error_signal[d]);
       }
     }
   }
