@@ -7,6 +7,7 @@ from .region import Region
 from nengo_spinnaker.utils.collections import registerabledict
 from nengo_spinnaker.utils import type_casts as tp
 
+
 def make_filters(signals_and_connections, minimise=False, width=None):
     """Create a list of filters and keyspace routes from the given
     signals and connections.
@@ -42,8 +43,9 @@ def make_filters(signals_and_connections, minimise=False, width=None):
                 filters.append(f)
 
             keyspace_routes.append((signal.keyspace, index))
-    
+
     return filters, keyspace_routes
+
 
 def make_filter_regions(signals_and_connections, dt, minimise=False,
                         filter_routing_tag="filter_routing",

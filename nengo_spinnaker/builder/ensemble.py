@@ -25,7 +25,7 @@ BuiltEnsemble = collections.namedtuple(
 @Model.source_getters.register(nengo.Ensemble)
 def get_ensemble_source(model, conn):
     ens = model.object_operators[conn.pre_obj]
-    
+
     # If this connection has a learning rule
     if conn.learning_rule is not None:
         # If it is a learning rule which modifies the decoder, source
@@ -34,10 +34,11 @@ def get_ensemble_source(model, conn):
         error_type = conn.learning_rule.learning_rule_type.error_type.lower()
         if error_type == "decoder":
             return spec(ObjectPort(ens, conn.learning_rule))
-    
+
     # Otherwise, it's a standard connection that can 
     # be sourced from the standard output port
     return spec(ObjectPort(ens, OutputPort.standard))
+
 
 @Model.source_getters.register(nengo.ensemble.Neurons)
 def get_neurons_source(model, connection):
@@ -70,14 +71,15 @@ def get_ensemble_sink(model, connection):
         # Otherwise we just sink into the Ensemble
         return spec(ObjectPort(ens, InputPort.standard))
 
+
 @Model.sink_getters.register(nengo.connection.LearningRule)
 def get_learning_rule_sink(model, connection):
     # Get the sink learning rule and parent learnt connection
     learning_rule = connection.post_obj
     learnt_connection = learning_rule.connection
-    
-    # If the learning rule in question is a decoder learning rule 
-    # i.e. one where this error connection needs to be re-routed 
+
+    # If the learning rule in question is a decoder learning rule
+    # i.e. one where this error connection needs to be re-routed
     # to the pre-synaptic population
     error_type = learning_rule.learning_rule_type.error_type.lower()
     if error_type == "decoder":
@@ -97,7 +99,7 @@ def get_learning_rule_sink(model, connection):
             "SpiNNaker does not support connections "
             "to non-decoder learning rules."
         )
-    
+
 @Model.sink_getters.register(nengo.ensemble.Neurons)
 def get_neurons_sink(model, connection):
     """Get the sink for connections into the neurons of an ensemble."""
