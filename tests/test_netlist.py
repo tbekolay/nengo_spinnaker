@@ -3,7 +3,8 @@ import pytest
 from rig.bitfield import BitField
 from rig import machine
 from rig.machine import Cores, SDRAM
-from rig.place_and_route.constraints import ReserveResourceConstraint
+from rig.place_and_route.constraints import (ReserveResourceConstraint,
+                                             LocationConstraint)
 
 from nengo_spinnaker import netlist
 from nengo_spinnaker.utils.itertools import flatten
@@ -96,6 +97,66 @@ class TestNet(object):
         assert "keyspace" in err_string
         assert "32" in err_string
         assert "{}".format(length) in err_string
+
+    def test_to_primitive_net(self):
+        """Check that a Net can return a Rig Net object (basically itself with
+        the keyspace removed).
+        """
+        # Create the original net
+        source = mock.Mock()
+        sink = mock.Mock()
+
+        ks = mock.Mock()
+        ks.length = 32
+
+        net = netlist.Net(source, sink, 5, ks)
+
+        # Get the primitive
+        assert net.as_rig_primitive.source is source
+        assert net.as_rig_primitive.sinks == [sink]
+        assert net.as_rig_primitive.weight == 5
+        assert not hasattr(net.as_rig_primitive, "keyspace")
+
+
+def test_netlist_to_primitive():
+    """Test that Netlists can reduce themselves to the first three arguments of
+    a Rig place & route function.
+    """
+    ks = mock.Mock()
+    ks.length = 32
+
+    vertices = [
+        netlist.Vertex(resources={SDRAM: 500, Cores: 1}),
+        netlist.Vertex(resources={SDRAM: 100, Cores: 2}),
+    ]
+    vertices[0].constraints.append(LocationConstraint(vertices[0], (0, 0)))
+    nets = [
+        netlist.Net(vertices[0], vertices[1], 3, ks),
+        netlist.Net(vertices[1], [vertices[0], vertices[1]], 3, ks),
+    ]
+
+    # Create the netlist
+    nl = netlist.Netlist(nets, vertices, {}, {})
+
+    # Check that the primitives are created correctly
+    args = nl.as_rig_arguments()
+    assert args["vertices_resources"] == {
+        vertices[0]: vertices[0].resources,
+        vertices[1]: vertices[1].resources
+    }
+    for net in args["nets"]:
+        if net.source is vertices[0]:
+            assert net.sinks == [vertices[1]]
+        else:
+            assert net.sinks == vertices
+
+    for cons in args["constraints"]:
+        if isinstance(cons, ReserveResourceConstraint):
+            assert cons.resource is Cores
+            assert cons.reservation == slice(0, 1)
+            assert cons.location is None
+        else:
+            assert cons is vertices[0].constraints[0]
 
 
 def test_place_and_route():
@@ -426,20 +487,27 @@ def test_load_application():
 
 
 def test_before_simulation():
-    """Test that all methods are called when asked to prepare a simulation."""
+    """Test that all methods are called when asked to prepare a simulation and
+    that the simulation duration is written in correctly.
+    """
     # Create some "before_simulation" functions
     before_a = mock.Mock()
     before_b = mock.Mock()
 
+    # Create a vertex
+    vertex = mock.Mock()
+
     # Create a netlist
     model = netlist.Netlist(
         nets=[],
-        vertices=[],
+        vertices=[vertex],
         keyspaces={},
         groups={},
         load_functions=[],
         before_simulation_functions=[before_a, before_b]
     )
+    model.placements[vertex] = (1, 2)
+    model.allocations[vertex] = {Cores: slice(5, 7)}
 
     # Call the before_simulation_functions
     simulator = mock.Mock(name="Simulator")
@@ -447,6 +515,11 @@ def test_before_simulation():
 
     before_a.assert_called_once_with(model, simulator, 100)
     before_b.assert_called_once_with(model, simulator, 100)
+
+    # Check we wrote in the run time
+    simulator.controller.write_vcpu_struct_field.assert_called_once_with(
+        "user1", 100, 1, 2, 5
+    )
 
 
 def test_after_simulation():

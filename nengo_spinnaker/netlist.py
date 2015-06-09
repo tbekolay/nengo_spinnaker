@@ -60,6 +60,11 @@ class Net(rig.netlist.Net):
         super(Net, self).__init__(source, sinks, weight)
         self.keyspace = keyspace
 
+    @property
+    def as_rig_primitive(self):
+        """Return a new :py:class:`rig.netlist.Net` representing this Net."""
+        return rig.netlist.Net(self.source, self.sinks, self.weight)
+
 
 class Vertex(object):
     """Represents a nominal unit of computation (a single instance or many
@@ -171,6 +176,18 @@ class Netlist(object):
         self.routes = dict()
         self.vertices_memory = dict()
 
+    def as_rig_arguments(self):
+        """Construct arguments for Rig from the Netlist."""
+        vertices_resources = {v: v.resources for v in self.vertices}
+        nets = [net.as_rig_primitive for net in self.nets]
+        constraints = list(flatten(v.constraints for v in self.vertices))
+        constraints.append(ReserveResourceConstraint(Cores, slice(0, 1)))
+
+        return {"vertices_resources": vertices_resources,
+                "nets": nets,
+                "constraints": constraints
+                }
+
     def place_and_route(self, machine,
                         place=place_and_route.place,
                         place_kwargs={},
@@ -203,9 +220,9 @@ class Netlist(object):
         """
         # Build a map of vertices to the resources they require, get a list of
         # constraints.
-        vertices_resources = {v: v.resources for v in self.vertices}
-        constraints = list(flatten(v.constraints for v in self.vertices))
-        constraints.append(ReserveResourceConstraint(Cores, slice(0, 1)))
+        args = self.as_rig_arguments()
+        vertices_resources = args["vertices_resources"]
+        constraints = args["constraints"]
 
         # Perform placement and allocation
         self.placements = place(vertices_resources, self.nets,
@@ -225,7 +242,7 @@ class Netlist(object):
                             constraints, self.placements, self.allocations,
                             **route_kwargs)
 
-    def load_application(self, controller, steps=0):
+    def load_application(self, controller):
         """Load the netlist to a SpiNNaker machine.
 
         Parameters
@@ -254,8 +271,6 @@ class Netlist(object):
             p = self.allocations[vertex][Cores].start
             controller.write_vcpu_struct_field(
                 "user0", memory.address, x, y, p)
-            controller.write_vcpu_struct_field(
-                "user1", steps, x, y, p)
 
         # Call each loading function in turn
         logger.debug("Loading data")
@@ -275,6 +290,14 @@ class Netlist(object):
         """Prepare the objects in the netlist for a simulation of a given
         number of steps.
         """
+        # Write into memory the duration of the simulation
+        for vertex in self.vertices:
+            x, y = self.placements[vertex]
+            p = self.allocations[vertex][Cores].start
+            simulator.controller.write_vcpu_struct_field("user1", n_steps,
+                                                         x, y, p)
+
+        # Call all the "before simulation" functions
         for fn in self.before_simulation_functions:
             fn(self, simulator, n_steps)
 
