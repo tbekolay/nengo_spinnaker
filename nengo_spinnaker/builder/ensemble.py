@@ -35,7 +35,7 @@ def get_ensemble_source(model, conn):
         if error_type == "decoder":
             return spec(ObjectPort(ens, conn.learning_rule))
 
-    # Otherwise, it's a standard connection that can 
+    # Otherwise, it's a standard connection that can
     # be sourced from the standard output port
     return spec(ObjectPort(ens, OutputPort.standard))
 
@@ -86,7 +86,7 @@ def get_learning_rule_sink(model, connection):
         # If the pre-synaptic population is an ensemble
         # i.e. something with a decoder to learn
         if isinstance(learnt_connection.pre_obj, nengo.Ensemble):
-            # Sink connection into unique port on pre-synaptic 
+            # Sink connection into unique port on pre-synaptic
             # ensemble identified by learning rule object
             ens = model.object_operators[learnt_connection.pre_obj]
             return spec(ObjectPort(ens, learning_rule))
@@ -99,6 +99,7 @@ def get_learning_rule_sink(model, connection):
             "SpiNNaker does not support connections "
             "to non-decoder learning rules."
         )
+
 
 @Model.sink_getters.register(nengo.ensemble.Neurons)
 def get_neurons_sink(model, connection):

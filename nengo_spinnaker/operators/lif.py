@@ -146,7 +146,7 @@ class EnsembleLIF(object):
         self.mod_filters = FilterRegion(mod_filters, model.dt)
         self.mod_filter_routing = FilterRoutingRegion(
             mod_keyspace_routes, model.keyspaces.filter_routing_tag)
-  
+
         # Now decoder is fully built, extract size
         size_out = decoders.shape[1]
 
