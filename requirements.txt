@@ -1,2 +1,2 @@
-git+https://github.com/nengo/nengo@learning_unmodulated#egg=nengo
+git+https://github.com/nengo/nengo@learning_unmodulate#egg=nengo
 git+https://github.com/project-rig/rig#egg=rig
