@@ -26,14 +26,14 @@ def test_remove_sinkless_signals():
     # Create the model
     model = Model()
     model.extra_operators = [o1, o2]
-    model.connections_signals = {c1: cs1, c2: cs2}
+    model.connections_signals = {c1: [cs1], c2: [cs2]}
     model.extra_signals = [ss1, ss2]
 
     # Remove sinkless signals
     remove_sinkless_signals(model)
 
     # Check that signals were removed as necessary
-    assert model.connections_signals == {c1: cs1}
+    assert model.connections_signals == {c1: [cs1]}
     assert model.extra_signals == [ss1]
 
 
@@ -95,8 +95,8 @@ def test_remove_childless_filters():
     }
     model.extra_operators = [f1, f2, f4, f5]
     model.connections_signals = {
-        cs4: s4,
-        cs5: s5,
+        cs4: [s4],
+        cs5: [s5],
     }
     model.extra_signals = [s1, s2, s3, s6]
 

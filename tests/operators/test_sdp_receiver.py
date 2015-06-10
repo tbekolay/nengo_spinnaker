@@ -44,8 +44,8 @@ class TestSDPReceiver(object):
         sig_b = Signal(ObjectPort(sdp_rx, OutputPort.standard), None, ks_b)
 
         model.connections_signals = {
-            conn_a: sig_a,
-            conn_b: sig_b,
+            conn_a: [sig_a],
+            conn_b: [sig_b],
         }
 
         # Make the vertices

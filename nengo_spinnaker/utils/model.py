@@ -3,7 +3,7 @@
 from __future__ import absolute_import
 
 import itertools
-from six import iteritems, itervalues
+from six import iteritems
 
 from nengo_spinnaker.operators import Filter
 
@@ -14,7 +14,8 @@ def remove_sinkless_signals(model):
     """
     # Create a list of signals to remove by iterating through the signals which
     # are related to connections and finding any with no sinks.
-    sinkless_signals = [(c, s) for c, s in iteritems(model.connections_signals)
+    sinkless_signals = [(c, s) for c, ss in
+                        iteritems(model.connections_signals) for s in ss
                         if len(s.sinks) == 0]
 
     # Now remove all sinkless signals
@@ -66,8 +67,9 @@ def remove_childless_filters(model):
         for obj, filt in childless_filters:
             # Remove the filter from the list of sinks of each of the signals
             # which target it.
-            for sig in itertools.chain(itervalues(model.connections_signals),
-                                       model.extra_signals):
+            for sig in model.all_signals():
+                # Prepare and remove sinks which target the object we're
+                # removing.
                 sinks = [s for s in sig.sinks if s.obj is filt]
                 for sink in sinks:
                     sig.sinks.remove(sink)

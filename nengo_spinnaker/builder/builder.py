@@ -122,17 +122,40 @@ class Model(object):
         self.machine_timestep = machine_timestep
         self.decoder_cache = decoder_cache
 
+        # Map Nengo objects to their built parameters (e.g. Connections ->
+        # Decoders, ...)
         self.params = dict()
+
+        # Map of Nengo objects to the seeds they are assigned and to their
+        # associated random number generators.
         self.seeds = dict()
         self.rngs = dict()
         self.rng = None
 
+        # A reference to the config which may modify how the network is built.
         self.config = None
+
+        # A map of Nengo objects to the "operators" which will handle their
+        # simulation on SpiNNaker.
         self.object_operators = dict()
+
+        # A list of extra "operators"
         self.extra_operators = list()
-        self.connections_signals = dict()
+
+        # Map of Nengo connections to lists of signals which lead to their
+        # simulation on SpiNNaker. This is set up so that a single signal may
+        # be used to simulate multiple connections (e.g., the same packets will
+        # end up being routed to multiple sinks, like for spikes) and a single
+        # connection may be simulated by multiple signals, this will occur in
+        # merge trees where at least two signals are needed per connection
+        # (source -> merge node -> sink).
+        self.connections_signals = collections.defaultdict(list)
+
+        # Additional signals
         self.extra_signals = list()
 
+        # The keyspaces dictionary automatically assigns separate regions of
+        # the overall keyspace to various users (e.g., external devices).
         if keyspaces is None:
             keyspaces = KeyspaceContainer()
         self.keyspaces = keyspaces
@@ -258,8 +281,8 @@ class Model(object):
 
         if source is not None and sink is not None:
             assert conn not in self.connections_signals
-            self.connections_signals[conn] = _make_signal(self, conn,
-                                                          source, sink)
+            self.connections_signals[conn].append(
+                _make_signal(self, conn, source, sink))
 
     def make_probe(self, probe):
         """Call an appropriate build function for the given probe."""
@@ -277,13 +300,26 @@ class Model(object):
         """Get a dictionary mapping ports to signals to connections which
         originate from a given intermediate object.
         """
+        # {port: {signal: [connection, ...], ...}, ...}
         ports_sigs_conns = collections.defaultdict(
             lambda: collections.defaultdict(collections_ext.noneignoringlist)
         )
 
-        for (conn, signal) in itertools.chain(
-                iteritems(self.connections_signals),
-                ((None, s) for s in self.extra_signals)):
+        # Create an iterator which will yield pairs of connections and signals.
+        # Each pair of connection and list of signals from
+        # `connections_signals` is expanded into pairs of connections and
+        # signals.  Each signal from `extra_signals` is paired with None to
+        # indicate that it is unrelated to a connection.
+        conn_sigs = itertools.chain(
+            ((c, s) for c, ss in iteritems(self.connections_signals)
+             for s in ss),
+            ((None, s) for s in self.extra_signals)
+        )
+
+        # Now iterate over this, if the source object of any of the signals is
+        # the object we care about then we add the port, signal and connection
+        # to the dictionary that we're building.
+        for (conn, signal) in conn_sigs:
             if signal.source.obj is obj:
                 ports_sigs_conns[signal.source.port][signal].append(conn)
 
@@ -293,18 +329,57 @@ class Model(object):
         """Get a dictionary mapping ports to signals to connections which
         terminate at a given intermediate object.
         """
+        # {port: {signal: [connection, ...], ...}, ...}
         ports_sigs_conns = collections.defaultdict(
             lambda: collections.defaultdict(collections_ext.noneignoringlist)
         )
 
-        for (conn, signal) in itertools.chain(
-                iteritems(self.connections_signals),
-                ((None, s) for s in self.extra_signals)):
+        # Create an iterator which will yield pairs of connections and signals.
+        # Each pair of connection and list of signals from
+        # `connections_signals` is expanded into pairs of connections and
+        # signals.  Each signal from `extra_signals` is paired with None to
+        # indicate that it is unrelated to a connection.
+        conn_sigs = itertools.chain(
+            ((c, s) for c, ss in iteritems(self.connections_signals)
+             for s in ss),
+            ((None, s) for s in self.extra_signals)
+        )
+
+        # Now iterate over this, if any of the sinks a signal is the object we
+        # care about then we add the port, signal and connection to the
+        # dictionary that we are building.
+        for (conn, signal) in conn_sigs:
             for sink in signal.sinks:
                 if sink.obj is obj:
                     ports_sigs_conns[sink.port][signal].append(conn)
 
         return ports_sigs_conns
+
+    def all_signals(self):
+        """Iterator of all signals within a model.
+
+        Yields
+        ------
+        Signal
+            All of the signals from a model, once each.
+        """
+        # Create an iterator over all of the signals in the model.  Each signal
+        # may appear multiple times in this iteration.
+        all_signals = itertools.chain(self.extra_signals,
+                                      *itervalues(self.connections_signals))
+
+        # To avoid yielding the same signal twice keep track of which signals
+        # we've seen and only yield signals which are not in this set.
+        seen_signals = set()
+        for sig in all_signals:
+            # If we've already seen the signal then skip to the next.
+            if sig in seen_signals:
+                continue
+
+            # Otherwise add the signal to the set of signals we've seen and
+            # then yield.
+            seen_signals.add(sig)
+            yield sig
 
     def make_netlist(self, *args, **kwargs):
         """Convert the model into a netlist for simulating on SpiNNaker.
@@ -345,8 +420,7 @@ class Model(object):
 
         # Construct nets from the signals
         nets = list()
-        for signal in itertools.chain(itervalues(self.connections_signals),
-                                      self.extra_signals):
+        for signal in self.all_signals():
             # Get the source and sink vertices
             sources = operator_vertices[signal.source.obj]
             if not isinstance(sources, collections.Iterable):

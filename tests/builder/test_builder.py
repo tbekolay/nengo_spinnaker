@@ -294,7 +294,7 @@ class TestMakeConnection(object):
         assert model.params[connection] is built_connection
 
         # Assert that the signal exists
-        signal = model.connections_signals[connection]
+        signal = model.connections_signals[connection][0]
         assert signal.source is source
         assert signal.sinks == [sink]
 
@@ -669,11 +669,11 @@ class TestGetSignalsAndConnections(object):
         # Create a model holding all of these items
         model = Model()
         model.connections_signals = {
-            conn_ab1: sig_ab1,
-            conn_ab2: sig_ab2,
-            conn_ba1: sig_ba1,
-            conn_ba2: sig_ba2,
-            conn_ba3: sig_ba2,
+            conn_ab1: [sig_ab1],
+            conn_ab2: [sig_ab2],
+            conn_ba1: [sig_ba1],
+            conn_ba2: [sig_ba2],
+            conn_ba3: [sig_ba2],
         }
         model.extra_signals = [sig_ab3, sig_ab4, sig_ba3]
 
@@ -739,11 +739,11 @@ class TestGetSignalsAndConnections(object):
         # Create a model holding all of these items
         model = Model()
         model.connections_signals = {
-            conn_ab1: sig_ab1,
-            conn_ab2: sig_ab2,
-            conn_ba1: sig_ba1,
-            conn_ba2: sig_ba2,
-            conn_ba3: sig_ba2,
+            conn_ab1: [sig_ab1],
+            conn_ab2: [sig_ab2],
+            conn_ba1: [sig_ba1],
+            conn_ba2: [sig_ba2],
+            conn_ba3: [sig_ba2],
         }
         model.extra_signals = [sig_ab3]
 
@@ -772,6 +772,44 @@ class TestGetSignalsAndConnections(object):
                 sig_ab3: [],
             },
         }
+
+    def test_not_all_originate_or_terminate(self):
+        """Test that we get valid signal and connection pairs when not all
+        signals associated with a connection terminate at the object of
+        interest.
+
+                |~~~~~c1~~|
+                v         v
+            o1 -s1--> o2 -s2--> o3
+
+        `c1` is simulated by `s1` and `s2` but only `s2` terminates at `o3`.
+        """
+        # Construct all of the objects
+        o1 = mock.Mock(name="o1")
+        o2 = mock.Mock(name="o2")
+        o3 = mock.Mock(name="o3")
+
+        # Create C1
+        c1 = mock.Mock()
+
+        # Create the signals
+        s1 = Signal(ObjectPort(o1, None), ObjectPort(o2, None), None)
+        s2 = Signal(ObjectPort(o2, None), ObjectPort(o3, None), None)
+
+        # Construct the model
+        model = Model()
+        model.connections_signals[c1] = [s1, s2]
+
+        # Check that we can grab the signals and connections originating from
+        # o1.
+        from_o1 = model.get_signals_connections_from_object(o1)
+        assert len(from_o1) == 1
+        assert from_o1 == {None: {s1: [c1]}}
+
+        # Check that we can grab the signals and connections terminating at o3.
+        to_o3 = model.get_signals_connections_to_object(o3)
+        assert len(to_o3) == 1
+        assert to_o3 == {None: {s2: [c1]}}
 
 
 class TestMakeNetlist(object):
@@ -812,7 +850,7 @@ class TestMakeNetlist(object):
         model = Model()
         model.object_operators[object_a] = operator_a
         model.object_operators[object_b] = operator_b
-        model.connections_signals[None] = signal_ab
+        model.connections_signals[None] = [signal_ab]
         netlist = model.make_netlist()
 
         # Check that the make_vertices functions were called
@@ -921,7 +959,7 @@ class TestMakeNetlist(object):
         model = Model()
         model.object_operators[object_a] = operator_a
         model.object_operators[object_b] = operator_b
-        model.connections_signals[None] = signal_ab
+        model.connections_signals[None] = [signal_ab]
         netlist = model.make_netlist()
 
         # Check that the netlist is as expected
@@ -969,7 +1007,7 @@ class TestMakeNetlist(object):
         model = Model()
         model.object_operators[object_a] = operator_a
         model.object_operators[object_b] = operator_b
-        model.connections_signals[None] = signal_ab
+        model.connections_signals[None] = [signal_ab]
         netlist = model.make_netlist()
 
         # Check that the netlist is as expected
@@ -980,3 +1018,27 @@ class TestMakeNetlist(object):
             assert net.sinks == [vertex_b]
 
         assert netlist.groups == [set([vertex_a0, vertex_a1])]
+
+
+def test_all_signals():
+    """Test that a list of signals can be extracted from a model and that the
+    same signal is not presented twice in the iterator.
+    """
+    # Create 2 signals
+    s1 = Signal(ObjectPort(mock.Mock(), None), ObjectPort(mock.Mock(), None),
+                None)
+    s2 = Signal(ObjectPort(mock.Mock(), None), ObjectPort(mock.Mock(), None),
+                None)
+
+    # Create a connection
+    c1 = mock.Mock()
+
+    # Create the model
+    model = Model()
+    model.connections_signals[c1] = [s1, s2]
+    model.extra_signals.append(s1)
+
+    # Get all the signals, there should only be two
+    sigs = list(model.all_signals())
+    assert len(sigs) == 2
+    assert set(sigs) == set([s1, s2])
