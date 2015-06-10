@@ -47,6 +47,12 @@ void c_main(void) {
     return;
   }
 
+  if(!get_filtered_activity(region_start(14, address)))
+  {
+    io_printf(IO_BUF, "[Ensemble] Failed to start.\n");
+    return;
+  }
+  
   // Set up recording
   if (!record_buffer_initialise(&g_ensemble.recd, region_start(15, address),
                                 simulation_ticks, g_ensemble.n_neurons)) {

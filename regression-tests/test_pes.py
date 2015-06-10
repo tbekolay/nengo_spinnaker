@@ -42,6 +42,7 @@ def test_pes():
         with sim:
             sim.run(10.0)
 
+
     # Read data
     pre_data = sim.data[pre_p]
     post_data = sim.data[post_p]
@@ -50,11 +51,10 @@ def test_pes():
     error = np.power(pre_data - post_data, 2.0)
 
     # After about 4s, learning should have converged
-    learnt_times = sim.trange() > 4.0
+    learnt_times = sim.trange() > 8.0
 
     # Check that mean error in this period is less than 0.1
-    assert math.sqrt(np.mean(error[learnt_times])) < 0.1
-
-
+    mean_error = math.sqrt(np.mean(error[learnt_times]))
+    assert mean_error < 0.1
 if __name__=="__main__":
     test_pes()

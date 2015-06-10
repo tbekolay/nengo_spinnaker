@@ -34,6 +34,9 @@ typedef struct pes_parameters_t
   
   // Offset into decoder to apply PES
   uint32_t decoder_output_offset;
+
+  // Index of the activity filter to extract input from
+  uint32_t activity_filter_index;
 } pes_parameters_t;
 
 //----------------------------------
@@ -77,9 +80,12 @@ static inline void pes_neuron_spiked(uint n)
 //----------------------------------
 /**
 * \brief Copy in data controlling the PES learning 
-* rule to the PES region of the Ensemble.
+* rule from the PES region of the Ensemble.
 */
 bool get_pes(address_t address);
+
+
+void pes_step();
 
 /** @} */
 

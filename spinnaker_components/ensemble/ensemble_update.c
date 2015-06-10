@@ -11,6 +11,7 @@
  */
 
 #include "ensemble.h"
+#include "ensemble_filtered_activity.h"
 #include "ensemble_output.h"
 #include "ensemble_pes.h"
 
@@ -32,6 +33,9 @@ void ensemble_update(uint ticks, uint arg1) {
   input_filter_step(&g_input, true);
   input_filter_step(&g_input_inhibitory, true);
   input_filter_step(&g_input_modulatory, false);
+
+  // Filter activity
+  filtered_activity_step();
 
   // Compute the inhibition
   for (uint d = 0; d < g_ensemble.n_inhib_dims; d++) {
@@ -98,10 +102,13 @@ void ensemble_update(uint ticks, uint arg1) {
       // Record that the spike occurred
       record_spike(&g_ensemble.recd, n);
 
-      // Notify PES that neuron has spiked
-      pes_neuron_spiked(n);
+      // Apply effect of neuron spiking to filtered activities
+      filtered_activity_neuron_spiked(n);
     }
   }
+
+  // Apply PES learning
+  pes_step();
 
   // Transmit decoded Ensemble representation
   for (uint output_index = 0; output_index < g_n_output_dimensions;

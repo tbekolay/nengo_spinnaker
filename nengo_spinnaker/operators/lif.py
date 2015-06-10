@@ -8,6 +8,7 @@ appropriate sized slices.
 
 from bitarray import bitarray
 import collections
+import math
 import nengo
 from nengo.base import ObjView
 import numpy as np
@@ -91,6 +92,9 @@ class EnsembleLIF(object):
         decoders, output_keys = \
             get_decoders_and_keys(model, outgoing[OutputPort.standard], True)
 
+        # Create filtered activity region
+        self.filtered_activity_region = FilteredActivityRegion(model.dt)
+
         # Create, initially empty, PES region
         self.pes_region = PESRegion()
 
@@ -123,6 +127,12 @@ class EnsembleLIF(object):
                     mod_filters.extend(filters)
                     mod_keyspace_routes.extend(keyspace_routes)
 
+                    # Either add a new filter to the filtered activity
+                    # region or get the index of the existing one
+                    activity_filter_index = \
+                        self.filtered_activity_region.add_get_filter(
+                            l_type.pre_tau)
+                    
                     # Add a new learning rule to the PES region
                     # **NOTE** divide learning rate by dt
                     # to account for activity scaling
@@ -130,7 +140,8 @@ class EnsembleLIF(object):
                         PESLearningRule(
                             learning_rate=l_type.learning_rate / model.dt,
                             filter_index=filter_index,
-                            decoder_offset=decoder_offset))
+                            decoder_offset=decoder_offset,
+                            activity_filter_index=activity_filter_index))
                 else:
                     raise ValueError(
                         "Ensemble %s has incoming modulatory PES "
@@ -188,7 +199,7 @@ class EnsembleLIF(object):
             self.mod_filters,
             self.mod_filter_routing,
             self.pes_region,
-            None,
+            self.filtered_activity_region,
             self.spike_region,
         ]
 
@@ -316,7 +327,8 @@ class SystemRegion(collections.namedtuple(
         fp.write(data)
 
 PESLearningRule = collections.namedtuple(
-    "PESLearningRule", "learning_rate, filter_index, decoder_offset")
+    "PESLearningRule",
+    "learning_rate, filter_index, decoder_offset, activity_filter_index")
 
 
 class PESRegion(regions.Region):
@@ -326,7 +338,7 @@ class PESRegion(regions.Region):
         self.learning_rules = []
 
     def sizeof(self, *args):
-        return 4 + (len(self.learning_rules) * 12)
+        return 4 + (len(self.learning_rules) * 16)
 
     def write_subregion_to_file(self, fp, vertex_slice):
         # Get length of slice for scaling learning rate
@@ -338,10 +350,11 @@ class PESRegion(regions.Region):
         # Write learning rules
         for l in self.learning_rules:
             data = struct.pack(
-                "<iII",
+                "<iIII",
                 tp.value_to_fix(l.learning_rate / n_neurons),
                 l.filter_index,
-                l.decoder_offset
+                l.decoder_offset,
+                l.activity_filter_index
             )
             fp.write(data)
 
@@ -399,3 +412,41 @@ class SpikeRegion(regions.Region):
 
     def write_subregion_to_file(self, *args, **kwargs):  # pragma: no cover
         pass  # Nothing to do
+
+
+class FilteredActivityRegion(regions.Region):
+    def __init__(self, dt):
+        self.filter_propogators = []
+        self.dt = dt
+
+    def add_get_filter(self, time_constant):
+        # Calculate propogator
+        propogator = math.exp(-float(self.dt) / float(time_constant))
+
+        # Convert to fixed-point
+        propogator_fixed = tp.value_to_fix(propogator)
+
+        # If there is already a filter with the same fixed-point
+        # propogator in the list, return its index
+        if propogator_fixed in self.filter_propogators:
+            return self.filter_propogators.index(propogator_fixed)
+        # Otherwise add propogator to list and return its index
+        else:
+            self.filter_propogators.append(propogator_fixed)
+            return (len(self.filter_propogators) - 1)
+
+    def sizeof(self, vertex_slice):
+        return 4 + (8 * len(self.filter_propogators))
+
+    def write_subregion_to_file(self, fp, vertex_slice):
+        # Write number of learning rules
+        fp.write(struct.pack("<I", len(self.filter_propogators)))
+
+        # Write filters
+        for f in self.filter_propogators:
+            data = struct.pack(
+                "<ii",
+                f,
+                tp.value_to_fix(1.0) - f,
+            )
+            fp.write(data)
