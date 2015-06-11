@@ -21,18 +21,16 @@ BuiltEnsemble = collections.namedtuple(
 )
 """Parameters which describe an Ensemble."""
 
-
 @Model.source_getters.register(nengo.Ensemble)
 def get_ensemble_source(model, conn):
     ens = model.object_operators[conn.pre_obj]
 
     # If this connection has a learning rule
     if conn.learning_rule is not None:
-        # If it is a learning rule which modifies the decoder, source
+        # If the rule modifies pre-synaptic state, source
         # it from a unique port identified by the learning rule
-        # **TODO** how to detect unsupervised decoder learning rules
-        error_type = conn.learning_rule.learning_rule_type.error_type.lower()
-        if error_type == "decoder":
+        pre_modifies = conn.learning_rule.learning_rule_type.pre_modifies
+        if pre_modifies is not None:
             return spec(ObjectPort(ens, conn.learning_rule))
 
     # Otherwise, it's a standard connection that can
@@ -49,25 +47,33 @@ def get_neurons_source(model, connection):
 
 
 @Model.sink_getters.register(nengo.Ensemble)
-def get_ensemble_sink(model, connection):
+def get_ensemble_sink(model, conn):
     """Get the sink for connections into an Ensemble."""
-    ens = model.object_operators[connection.post_obj]
+    ens = model.object_operators[conn.post_obj]
 
-    if (isinstance(connection.pre_obj, nengo.Node) and
-            not callable(connection.pre_obj.output) and
-            not isinstance(connection.pre_obj.output, Process) and
-            connection.pre_obj.output is not None):
+    if (isinstance(conn.pre_obj, nengo.Node) and
+            not callable(conn.pre_obj.output) and
+            not isinstance(conn.pre_obj.output, Process) and
+            conn.pre_obj.output is not None):
         # Connections from constant valued Nodes are optimised out.
         # Build the value that will be added to the direct input for the
         # ensemble.
-        val = connection.pre_obj.output[connection.pre_slice]
+        val = conn.pre_obj.output[conn.pre_slice]
 
-        if connection.function is not None:
-            val = connection.function(val)
+        if conn.function is not None:
+            val = conn.function(val)
 
-        transform = full_transform(connection, slice_pre=False)
+        transform = full_transform(conn, slice_pre=False)
         ens.direct_input += np.dot(transform, val)
     else:
+        # If this connection has a learning rule
+        if conn.learning_rule is not None:
+            # If the rule modifies post-synaptic state, sink
+            # it to a unique port identified by the learning rule
+            post_modifies = conn.learning_rule.learning_rule_type.post_modifies
+            if post_modifies is not None:
+                return spec(ObjectPort(ens, conn.learning_rule))
+
         # Otherwise we just sink into the Ensemble
         return spec(ObjectPort(ens, InputPort.standard))
 
@@ -78,27 +84,46 @@ def get_learning_rule_sink(model, connection):
     learning_rule = connection.post_obj
     learnt_connection = learning_rule.connection
 
-    # If the learning rule in question is a decoder learning rule
-    # i.e. one where this error connection needs to be re-routed
-    # to the pre-synaptic population
-    error_type = learning_rule.learning_rule_type.error_type.lower()
-    if error_type == "decoder":
-        # If the pre-synaptic population is an ensemble
-        # i.e. something with a decoder to learn
-        if isinstance(learnt_connection.pre_obj, nengo.Ensemble):
+    # Get the lists of state that the learning rules modify
+    pre_modifies = learning_rule.learning_rule_type.pre_modifies
+    post_modifies = learning_rule.learning_rule_type.post_modifies
+
+    # If learning rule is trying to modify both, complain
+    if pre_modifies is not None and post_modifies is not None:
+        raise NotImplementedError(
+            "SpiNNaker only supports learning rules which  "
+            "modify pre OR post synaptic ensembles - not both "
+        )
+    # If rule modifies pre-synaptic state
+    elif pre_modifies is not None:
+        # If rule modifies pre-synaptic ensemble and is connected to one
+        if ("Ensemble" in pre_modifies and
+            isinstance(learnt_connection.pre_obj, nengo.Ensemble)):
+
             # Sink connection into unique port on pre-synaptic
             # ensemble identified by learning rule object
             ens = model.object_operators[learnt_connection.pre_obj]
             return spec(ObjectPort(ens, learning_rule))
         else:
-            raise ValueError(
-                "Cannot learn connections which don't begin at ensembles"
+            raise NotImplementedError(
+                "SpiNNaker only supports learning rules "
+                "which modify pre-synaptic ensembles"
             )
-    else:
-        raise NotImplementedError(
-            "SpiNNaker does not support connections "
-            "to non-decoder learning rules."
-        )
+    # Otherwise, if it modifies post-synaptic state
+    elif post_modifies is not None:
+        # If rule modifies post-synaptic ensemble and is connected to one
+        if ("Ensemble" in post_modifies and
+            isinstance(learnt_connection.post_obj, nengo.Ensemble)):
+
+            # Sink connection into unique port on post-synaptic
+            # ensemble identified by learning rule object
+            ens = model.object_operators[learnt_connection.post_obj]
+            return spec(ObjectPort(ens, learning_rule))
+        else:
+            raise NotImplementedError(
+                "SpiNNaker only supports learning rules "
+                "which modify post-synaptic ensembles"
+            )
 
 
 @Model.sink_getters.register(nengo.ensemble.Neurons)
