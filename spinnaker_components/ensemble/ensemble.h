@@ -115,11 +115,20 @@ void ensemble_update( uint arg0, uint arg1 );
 /* Static inline access functions ********************************************/
 // -- Encoder(s) and decoder(s)
 //! Get the encoder value for the given neuron and dimension
-static inline value_t neuron_encoder( uint n, uint d )
-  { return g_ensemble.encoders[ n * g_input.n_dimensions + d ]; };
+static inline value_t neuron_encoder(uint n, uint d)
+{
+  return g_ensemble.encoders[n * g_input.n_dimensions + d];
+}
 
-static inline value_t neuron_decoder( uint n, uint d )
-  { return g_ensemble.decoders[ n * g_n_output_dimensions + d ]; };
+static inline value_t *neuron_encoder_vector(uint n)
+{
+  return &g_ensemble.encoders[n * g_input.n_dimensions];
+}
+
+static inline value_t neuron_decoder(uint n, uint d)
+{
+  return g_ensemble.decoders[n * g_n_output_dimensions + d];
+}
 
 static inline value_t *neuron_decoder_vector(uint n)
 {

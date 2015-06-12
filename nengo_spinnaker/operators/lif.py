@@ -99,6 +99,8 @@ class EnsembleLIF(object):
         self.pes_region = PESRegion()
 
         # Loop through modulatory incoming connections
+        # **TODO** this doesn't work as an entry point as
+        # Voja can operate without a modulatory signal
         mod_filters = list()
         mod_keyspace_routes = list()
         for (l, m) in iteritems(modulatory_incoming):

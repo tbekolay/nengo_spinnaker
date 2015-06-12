@@ -58,29 +58,25 @@ void pes_step()
   // Loop through all the learning rules
   for(uint32_t l = 0; l < g_num_pes_learning_rules; l++)
   {
+    // Extract filtered error signal vector indexed by learning rule
     const pes_parameters_t *parameters = &g_pes_learning_rules[l];
-    if(parameters->learning_rate > 0.0k)
+    const filtered_input_buffer_t *filtered_input = g_input_modulatory.filters[parameters->error_signal_filter_index];
+    const value_t *filtered_error_signal = filtered_input->filtered;
+
+    // Extract filtered activity vector indexed by learning rule
+    const value_t *filtered_activity = g_filtered_activities[parameters->activity_filter_index];
+
+    // Loop through neurons
+    for(uint n = 0; n < g_ensemble.n_neurons; n++)
     {
-      // Extract filtered error signal vector indexed by learning rule
-      const filtered_input_buffer_t *filtered_input = g_input_modulatory.filters[parameters->error_signal_filter_index];
-      const value_t *filtered_error_signal = filtered_input->filtered;
+      // Get this neuron's decoder vector
+      value_t *decoder_vector = neuron_decoder_vector(n);
 
-      // Extract filtered activity vector indexed by learning rule
-      const value_t *filtered_activity = g_filtered_activities[parameters->activity_filter_index];
-
-      // Loop through neurons
-      for(uint n = 0; n < g_ensemble.n_neurons; n++)
+      // Loop through output dimensions and apply PES to decoder values offset by output offset
+      for(uint d = 0; d < filtered_input->d_in; d++)
       {
-        // Get filtered activity of this neuron and it's decoder vector
-        value_t *decoder_vector = neuron_decoder_vector(n);
-
-        // Loop through output dimensions and apply PES to decoder values offset by output offset
-        for(uint d = 0; d < filtered_input->d_in; d++)
-        {
-          decoder_vector[d + parameters->decoder_output_offset] -= (parameters->learning_rate * filtered_activity[n] * filtered_error_signal[d]);
-        }
+        decoder_vector[d + parameters->decoder_output_offset] -= (parameters->learning_rate * filtered_activity[n] * filtered_error_signal[d]);
       }
     }
-
   }
 }
