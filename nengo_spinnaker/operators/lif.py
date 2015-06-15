@@ -20,7 +20,7 @@ from nengo.connection import LearningRule
 from nengo_spinnaker.builder.builder import InputPort, netlistspec, OutputPort
 from nengo_spinnaker.builder.ports import EnsembleInputPort
 from nengo_spinnaker.regions.filters import (
-    make_filter_regions, make_filters, FilterRegion, FilterRoutingRegion
+    make_filter_regions, add_filters, FilterRegion, FilterRoutingRegion
 )
 from .. import regions
 from nengo_spinnaker.netlist import VertexSlice
@@ -118,10 +118,10 @@ class EnsembleLIF(object):
                     decoders = np.hstack((decoders, learnt_decoders))
                     output_keys.extend(learnt_output_keys)
 
-                    # Create modulatory filter and add to list
-                    filters, keyspace_routes = make_filters(m, minimise=False)
-                    mod_filters.extend(filters)
-                    mod_keyspace_routes.extend(keyspace_routes)
+                    # Add this connection to lists of
+                    # modulatory filters and routes
+                    mod_filters, mod_keyspace_routes = add_filters(
+                        mod_filters, mod_keyspace_routes, m, minimise=False)
 
                     # Add a new learning rule to the PES region
                     # **NOTE** divide learning rate by dt
@@ -338,7 +338,7 @@ class PESRegion(regions.Region):
         # Write learning rules
         for l in self.learning_rules:
             data = struct.pack(
-                "<iII",
+                "<3I",
                 tp.value_to_fix(l.learning_rate / n_neurons),
                 l.filter_index,
                 l.decoder_offset
