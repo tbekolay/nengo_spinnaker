@@ -115,7 +115,14 @@ class EnsembleLIF(object):
                     learnt_decoders, learnt_output_keys = \
                         get_decoders_and_keys(model, outgoing[l], False)
 
-                    decoders = np.hstack((decoders, learnt_decoders))
+                    # If there are no existing decodes, hstacking doesn't
+                    # work so set decoders to new learnt decoder matrix
+                    if decoder_offset == 0:
+                        decoders = learnt_decoders
+                    # Otherwise, stack learnt decoders beneath existing matrix
+                    else:
+                        decoders = np.hstack((decoders, learnt_decoders))
+
                     output_keys.extend(learnt_output_keys)
 
                     # Add this connection to lists of
