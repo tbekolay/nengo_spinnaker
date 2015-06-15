@@ -19,7 +19,7 @@ import struct
 from nengo.connection import LearningRule
 
 from nengo_spinnaker.builder.builder import InputPort, netlistspec, OutputPort
-from nengo_spinnaker.builder.ports import EnsembleInputPort
+from nengo_spinnaker.builder.ports import EnsembleInputPort, EnsembleOutputPort
 from nengo_spinnaker.regions.filters import (
     make_filter_regions, add_filters, FilterRegion, FilterRoutingRegion
 )
@@ -72,11 +72,13 @@ class EnsembleLIF(object):
         # Extract all the filters from the incoming connections
         incoming = model.get_signals_connections_to_object(self)
 
-        # Filter out modulatory incoming connections
-        modulatory_incoming = {port: signal
+        # Filter out incoming modulatory connections
+        incoming_modulatory = {port: signal
                                for (port, signal) in iteritems(incoming)
                                if isinstance(port, LearningRule)}
 
+        # Build input filters filter routing regions for incoming connections
+        #  that sink into this ensembles standard input ports
         self.input_filters, self.input_filter_routing = make_filter_regions(
             incoming[InputPort.standard], model.dt, True,
             model.keyspaces.filter_routing_tag, width=self.ensemble.size_in
@@ -98,30 +100,37 @@ class EnsembleLIF(object):
         # Create, initially empty, PES region
         self.pes_region = PESRegion()
 
-        # Loop through modulatory incoming connections
-        # **TODO** this doesn't work as an entry point as
-        # Voja can operate without a modulatory signal
+        # Loop through outgoing learnt connections
         mod_filters = list()
         mod_keyspace_routes = list()
-        for (l, m) in iteritems(modulatory_incoming):
-            # Extract the learning rule's types
-            l_type = l.learning_rule_type
-
+        for sig, conns in iteritems(outgoing[EnsembleOutputPort.learnt]):
             # If this learning rule is PES
+            l_type = conns[0].learning_rule_type
             if isinstance(l_type, nengo.PES):
-                # If a matching outgoing learnt connection is found
-                if l in outgoing:
+                # If there is a modulatory connection associated
+                # with this connection's learning rule
+                l_rule = conns[0].learning_rule
+                if l_rule in incoming_modulatory:
+                    m = incoming_modulatory[l_rule]
+
                     # Cache what will be this PES rule's
                     # filter and decoder index
                     filter_index = len(mod_filters)
                     decoder_offset = decoders.shape[1]
 
-                    # Create new decoders and output keys for learnt
-                    # connection and add to object's list
+                    # Get new decoders and output keys for learnt connection
                     learnt_decoders, learnt_output_keys = \
-                        get_decoders_and_keys(model, outgoing[l], False)
+                        get_decoders_and_keys(model, {sig: conns}, False)
 
-                    decoders = np.hstack((decoders, learnt_decoders))
+                    # If there are no existing decodes, hstacking doesn't
+                    # work so set decoders to new learnt decoder matrix
+                    if decoder_offset == 0:
+                        decoders = learnt_decoders
+                    # Otherwise, stack learnt decoders beneath existing matrix
+                    else:
+                        decoders = np.hstack((decoders, learnt_decoders))
+
+                    # Also add output keys to list
                     output_keys.extend(learnt_output_keys)
 
                     # Add this connection to lists of
@@ -134,7 +143,7 @@ class EnsembleLIF(object):
                     activity_filter_index = \
                         self.filtered_activity_region.add_get_filter(
                             l_type.pre_tau)
-                    
+
                     # Add a new learning rule to the PES region
                     # **NOTE** divide learning rate by dt
                     # to account for activity scaling
@@ -146,14 +155,24 @@ class EnsembleLIF(object):
                             activity_filter_index=activity_filter_index))
                 else:
                     raise ValueError(
-                        "Ensemble %s has incoming modulatory PES "
-                        "connection, but no corresponding outgoing "
-                        "learnt connection" % self.ensemble.label
+                        "Ensemble %s has outgoing connection with PES "
+                        "learning, but no corresponding modulatory "
+                        "connection" % self.ensemble.label
                     )
             else:
                 raise NotImplementedError(
-                    "SpiNNaker currently only supports PES learning."
+                    "SpiNNaker does not support %s learning rule." % l_type
                 )
+
+        # Loop through incoming learnt connections
+        for sig, conns in iteritems(incoming[EnsembleInputPort.learnt]):
+            # If this learning rule is Voja
+            l_type = conns[0].learning_rule_type
+            if isinstance(l_type, nengo.Voja):
+                # If there is a modulatory connection associated
+                # with this connection's learning rule
+                l_rule = conns[0].learning_rule
+                print "VOJA STUB"
 
         # Create modulatory filter and routing regions
         self.mod_filters = FilterRegion(mod_filters, model.dt)

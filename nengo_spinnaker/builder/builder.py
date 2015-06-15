@@ -395,8 +395,7 @@ class OutputPort(enum.Enum):
 class InputPort(enum.Enum):
     """Indicate the intended receiving part of an executable."""
     standard = 0
-    """Standard, value-based, output port."""
-
+    """Standard, value-based, input port."""
 
 class netlistspec(collections.namedtuple(
         "netlistspec", "vertices, load_function, before_simulation_function, "

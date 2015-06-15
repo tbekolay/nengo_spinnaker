@@ -11,7 +11,7 @@ import numpy as np
 from .builder import (
     BuiltConnection, InputPort, Model, OutputPort, ObjectPort, spec
 )
-from .ports import EnsembleInputPort
+from .ports import EnsembleInputPort, EnsembleOutputPort
 from .. import operators
 from ..utils import collections as collections_ext
 
@@ -27,11 +27,11 @@ def get_ensemble_source(model, conn):
 
     # If this connection has a learning rule
     if conn.learning_rule is not None:
-        # If the rule modifies pre-synaptic state, source
-        # it from a unique port identified by the learning rule
+        # If the rule modifies pre-synaptic
+        # state, source it from learnt output port
         pre_modifies = conn.learning_rule.learning_rule_type.pre_modifies
         if pre_modifies is not None:
-            return spec(ObjectPort(ens, conn.learning_rule))
+            return spec(ObjectPort(ens, EnsembleOutputPort.learnt))
 
     # Otherwise, it's a standard connection that can
     # be sourced from the standard output port
@@ -68,11 +68,11 @@ def get_ensemble_sink(model, conn):
     else:
         # If this connection has a learning rule
         if conn.learning_rule is not None:
-            # If the rule modifies post-synaptic state, sink
-            # it to a unique port identified by the learning rule
+            # If the rule modifies post-synaptic
+            # state, sink it into learnt input port
             post_modifies = conn.learning_rule.learning_rule_type.post_modifies
             if post_modifies is not None:
-                return spec(ObjectPort(ens, conn.learning_rule))
+                return spec(ObjectPort(ens, EnsembleInputPort.learnt))
 
         # Otherwise we just sink into the Ensemble
         return spec(ObjectPort(ens, InputPort.standard))
