@@ -181,9 +181,9 @@ class Simulator(object):
         self.netlist.before_simulation(self, steps)
 
         # Wait for all cores to hit SYNC0
-        self.controller.wait_for_cores_to_reach_state(
-            "sync0", len(self.netlist.vertices)
-        )
+        num_cores = sum(1 for v in self.netlist.vertices if
+                        v.application is not None)
+        self.controller.wait_for_cores_to_reach_state("sync0", num_cores)
         self.controller.send_signal("sync0")
 
         # Get a new thread for the IO
@@ -196,9 +196,7 @@ class Simulator(object):
             io_thread.start()
 
             # Wait for all cores to hit SYNC1
-            self.controller.wait_for_cores_to_reach_state(
-                "sync1", len(self.netlist.vertices)
-            )
+            self.controller.wait_for_cores_to_reach_state("sync1", num_cores)
             logger.info("Running simulation...")
             self.controller.send_signal("sync1")
 
