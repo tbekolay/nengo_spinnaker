@@ -17,36 +17,11 @@
 
 #include <string.h>
 
-
-//----------------------------------
-// Structs
-//----------------------------------
-// Structure containing parameters and state required for Voja learning
-typedef struct voja_parameters_t
-{
-  // Scalar learning rate used in Voja encoder delta calculation
-  value_t learning_rate;
-
-  // Index of the input signal filter that contains
-  // learning signal. -1 if there is no learning signal
-  int32_t learning_signal_filter_index;
-
-  // Offset into encoder to apply Voja
-  uint32_t encoder_offset;
-
-  // Index of the input signal filter than contains
-  // the decoded input from the pre-synaptic ensemble
-  uint32_t decoded_input_filter_index;
-
-  // Index of the activity filter to extract input from
-  uint32_t activity_filter_index;
-} voja_parameters_t;
-
 //-----------------------------------------------------------------------------
 // Global variables
 //-----------------------------------------------------------------------------
-static uint32_t g_num_voja_learning_rules = 0;
-static voja_parameters_t *g_voja_learning_rules = NULL;
+uint32_t g_num_voja_learning_rules = 0;
+voja_parameters_t *g_voja_learning_rules = NULL;
 
 //-----------------------------------------------------------------------------
 // Global functions
@@ -71,7 +46,7 @@ bool get_voja(address_t address)
     for(uint32_t l = 0; l < g_num_voja_learning_rules; l++)
     {
       const voja_parameters_t *parameters = &g_voja_learning_rules[l];
-      io_printf(IO_BUF, "\tRule %u, Learning rate:%k, Learning signal filter index:%d, Encoder output offset:%u, Decoded input filter index:%u, Activity filter index:%u\n",
+      io_printf(IO_BUF, "\tRule %u, Learning rate:%k, Learning signal filter index:%d, Encoder output offset:%u, Decoded input filter index:%u, Activity filter index:%d\n",
                 l, parameters->learning_rate, parameters->learning_signal_filter_index, parameters->encoder_offset, parameters->decoded_input_filter_index, parameters->activity_filter_index);
     }
   }
@@ -83,33 +58,31 @@ void voja_step()
   // Loop through all the learning rules
   for(uint32_t l = 0; l < g_num_voja_learning_rules; l++)
   {
-    // Extract filtered error signal vector indexed by learning rule
+    // If this learning rule operates on filtered activity and should, therefore be updated here
     const voja_parameters_t *parameters = &g_voja_learning_rules[l];
-
-    // Extract learning rate from parameters and, if specified, multiply by current learning signal value
-    value_t learning_rate = parameters->learning_rate;
-    if(parameters->learning_signal_filter_index != -1)
+    if(parameters->activity_filter_index != -1)
     {
-      learning_rate *= g_input_modulatory.filters[parameters->learning_signal_filter_index]->filtered[0];
-    }
+      // Get learning rate
+      const value_t learning_rate = voja_get_learning_rate(parameters);
 
-    // Extract decoded input signal from filter
-    const filtered_input_buffer_t *decoded_input = g_input.filters[parameters->decoded_input_filter_index];
-    const value_t *decoded_input_signal = decoded_input->filtered;
+      // Extract decoded input signal from filter
+      const filtered_input_buffer_t *decoded_input = g_input.filters[parameters->decoded_input_filter_index];
+      const value_t *decoded_input_signal = decoded_input->filtered;
 
-    // Extract filtered activity vector indexed by learning rule
-    const value_t *filtered_activity = g_filtered_activities[parameters->activity_filter_index];
+      // Extract filtered activity vector indexed by learning rule
+      const value_t *filtered_activity = g_filtered_activities[parameters->activity_filter_index];
 
-    // Loop through neurons
-    for(uint n = 0; n < g_ensemble.n_neurons; n++)
-    {
-      // Get this neuron's encoder vector, offset by the encoder offset
-      value_t *encoder_vector = neuron_encoder_vector(n) + parameters->encoder_offset;
-
-      // Loop through input dimensions
-      for(uint d = 0; d < decoded_input->d_in; d++)
+      // Loop through neurons
+      for(uint n = 0; n < g_ensemble.n_neurons; n++)
       {
-        encoder_vector[d] += learning_rate * filtered_activity[n] * (decoded_input_signal[d] - encoder_vector[d]);
+        // Get this neuron's encoder vector, offset by the encoder offset
+        value_t *encoder_vector = neuron_encoder_vector(n) + parameters->encoder_offset;
+
+        // Loop through input dimensions
+        for(uint d = 0; d < decoded_input->d_in; d++)
+        {
+          encoder_vector[d] += learning_rate * filtered_activity[n] * (decoded_input_signal[d] - encoder_vector[d]);
+        }
       }
     }
   }

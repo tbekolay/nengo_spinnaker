@@ -45,24 +45,6 @@ class EnsembleLIF(object):
         # Build encoders, gain and bias regions
         params = model.params[self.ensemble]
 
-        # Convert the encoders combined with the gain to S1615 before creating
-        # the region.
-        encoders_with_gain = params.scaled_encoders
-        self.encoders_region = regions.MatrixRegion(
-            tp.np_to_fix(encoders_with_gain),
-            sliced_dimension=regions.MatrixPartitioning.rows
-        )
-
-        # Combine the direct input with the bias before converting to S1615 and
-        # creating the region.
-        bias_with_di = params.bias + np.dot(encoders_with_gain,
-                                            self.direct_input)
-        assert bias_with_di.ndim == 1
-        self.bias_region = regions.MatrixRegion(
-            tp.np_to_fix(bias_with_di),
-            sliced_dimension=regions.MatrixPartitioning.rows
-        )
-
         # Convert the gains to S1615 before creating the region
         self.gain_region = regions.MatrixRegion(
             tp.np_to_fix(params.gain),
@@ -93,6 +75,9 @@ class EnsembleLIF(object):
         outgoing = model.get_signals_connections_from_object(self)
         decoders, output_keys = \
             get_decoders_and_keys(model, outgoing[OutputPort.standard], True)
+
+        # Extract pre-scaled encoders from parameters
+        encoders_with_gain = params.scaled_encoders
 
         # Create filtered activity region
         self.filtered_activity_region = FilteredActivityRegion(model.dt)
@@ -221,6 +206,23 @@ class EnsembleLIF(object):
                 raise NotImplementedError(
                     "SpiNNaker does not support %s learning rule." % l_type
                 )
+
+        # Convert the encoders combined with the gain to S1615 before creating
+        # the region.
+        self.encoders_region = regions.MatrixRegion(
+            tp.np_to_fix(encoders_with_gain),
+            sliced_dimension=regions.MatrixPartitioning.rows
+        )
+
+        # Combine the direct input with the bias before converting to S1615 and
+        # creating the region.
+        bias_with_di = params.bias + np.dot(encoders_with_gain,
+                                            self.direct_input)
+        assert bias_with_di.ndim == 1
+        self.bias_region = regions.MatrixRegion(
+            tp.np_to_fix(bias_with_di),
+            sliced_dimension=regions.MatrixPartitioning.rows
+        )
 
         # Create modulatory filter and routing regions
         self.mod_filters = FilterRegion(mod_filters, model.dt)
@@ -433,7 +435,7 @@ class PESRegion(regions.Region):
         # Write learning rules
         for l in self.learning_rules:
             data = struct.pack(
-                "<4I",
+                "<3Ii",
                 tp.value_to_fix(l.learning_rate / n_neurons),
                 l.error_filter_index,
                 l.decoder_offset,
@@ -466,7 +468,7 @@ class VojaRegion(regions.Region):
         # Write learning rules
         for l in self.learning_rules:
             data = struct.pack(
-                "<Ii3I",
+                "<Ii2Ii",
                 tp.value_to_fix(l.learning_rate / n_neurons),
                 l.learning_signal_filter_index,
                 l.encoder_offset,
@@ -537,20 +539,26 @@ class FilteredActivityRegion(regions.Region):
         self.dt = dt
 
     def add_get_filter(self, time_constant):
-        # Calculate propogator
-        propogator = math.exp(-float(self.dt) / float(time_constant))
-
-        # Convert to fixed-point
-        propogator_fixed = tp.value_to_fix(propogator)
-
-        # If there is already a filter with the same fixed-point
-        # propogator in the list, return its index
-        if propogator_fixed in self.filter_propogators:
-            return self.filter_propogators.index(propogator_fixed)
-        # Otherwise add propogator to list and return its index
+        # If time constant is none or less than dt,
+        # a filter is not required so return -1
+        if time_constant is None or time_constant < self.dt:
+            return -1
+        # Otherwise
         else:
-            self.filter_propogators.append(propogator_fixed)
-            return (len(self.filter_propogators) - 1)
+            # Calculate propogator
+            propogator = math.exp(-float(self.dt) / float(time_constant))
+
+            # Convert to fixed-point
+            propogator_fixed = tp.value_to_fix(propogator)
+
+            # If there is already a filter with the same fixed-point
+            # propogator in the list, return its index
+            if propogator_fixed in self.filter_propogators:
+                return self.filter_propogators.index(propogator_fixed)
+            # Otherwise add propogator to list and return its index
+            else:
+                self.filter_propogators.append(propogator_fixed)
+                return (len(self.filter_propogators) - 1)
 
     def sizeof(self, vertex_slice):
         return 4 + (8 * len(self.filter_propogators))

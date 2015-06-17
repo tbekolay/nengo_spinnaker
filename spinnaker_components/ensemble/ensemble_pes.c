@@ -46,7 +46,7 @@ bool get_pes(address_t address)
     for(uint32_t l = 0; l < g_num_pes_learning_rules; l++)
     {
       const pes_parameters_t *parameters = &g_pes_learning_rules[l];
-      io_printf(IO_BUF, "\tRule %u, Learning rate:%k, Error signal filter index:%u, Decoder output offset:%u, Activity filter index:%u\n",
+      io_printf(IO_BUF, "\tRule %u, Learning rate:%k, Error signal filter index:%u, Decoder output offset:%u, Activity filter index:%d\n",
                l, parameters->learning_rate, parameters->error_signal_filter_index, parameters->decoder_output_offset, parameters->activity_filter_index);
     }
   }
@@ -60,22 +60,28 @@ void pes_step()
   {
     // Extract filtered error signal vector indexed by learning rule
     const pes_parameters_t *parameters = &g_pes_learning_rules[l];
-    const filtered_input_buffer_t *filtered_input = g_input_modulatory.filters[parameters->error_signal_filter_index];
-    const value_t *filtered_error_signal = filtered_input->filtered;
 
-    // Extract filtered activity vector indexed by learning rule
-    const value_t *filtered_activity = g_filtered_activities[parameters->activity_filter_index];
-
-    // Loop through neurons
-    for(uint n = 0; n < g_ensemble.n_neurons; n++)
+    // If this learning rule operates on filtered activity and should, therefore be updated here
+    if(parameters->activity_filter_index != -1)
     {
-      // Get this neuron's decoder vector
-      value_t *decoder_vector = neuron_decoder_vector(n);
+      // Extract input signal from filter
+      const filtered_input_buffer_t *filtered_input = g_input_modulatory.filters[parameters->error_signal_filter_index];
+      const value_t *filtered_error_signal = filtered_input->filtered;
 
-      // Loop through output dimensions and apply PES to decoder values offset by output offset
-      for(uint d = 0; d < filtered_input->d_in; d++)
+      // Extract filtered activity vector indexed by learning rule
+      const value_t *filtered_activity = g_filtered_activities[parameters->activity_filter_index];
+
+      // Loop through neurons
+      for(uint n = 0; n < g_ensemble.n_neurons; n++)
       {
-        decoder_vector[d + parameters->decoder_output_offset] -= (parameters->learning_rate * filtered_activity[n] * filtered_error_signal[d]);
+        // Get this neuron's decoder vector
+        value_t *decoder_vector = neuron_decoder_vector(n);
+
+        // Loop through output dimensions and apply PES to decoder values offset by output offset
+        for(uint d = 0; d < filtered_input->d_in; d++)
+        {
+          decoder_vector[d + parameters->decoder_output_offset] -= (parameters->learning_rate * filtered_activity[n] * filtered_error_signal[d]);
+        }
       }
     }
   }

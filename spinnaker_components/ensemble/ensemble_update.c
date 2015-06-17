@@ -105,6 +105,9 @@ void ensemble_update(uint ticks, uint arg1) {
 
       // Apply effect of neuron spiking to filtered activities
       filtered_activity_neuron_spiked(n);
+
+      // Update non-filtered PES filtered
+      pes_neuron_spiked(n);
     }
   }
 

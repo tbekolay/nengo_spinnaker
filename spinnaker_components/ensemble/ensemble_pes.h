@@ -36,7 +36,8 @@ typedef struct pes_parameters_t
   uint32_t decoder_output_offset;
 
   // Index of the activity filter to extract input from
-  uint32_t activity_filter_index;
+  // -1 if this learning rule should use unfiltered activity
+  int32_t activity_filter_index;
 } pes_parameters_t;
 
 //----------------------------------
@@ -56,18 +57,22 @@ static inline void pes_neuron_spiked(uint n)
   // Loop through all the learning rules
   for(uint32_t l = 0; l < g_num_pes_learning_rules; l++)
   {
-    // Extract error signal vector from
+    // If this learning rule operates on un-filtered activity and should, therefore be updated here
     const pes_parameters_t *parameters = &g_pes_learning_rules[l];
-    const filtered_input_buffer_t *filtered_input = g_input_modulatory.filters[parameters->error_signal_filter_index];
-    const value_t *filtered_error_signal = filtered_input->filtered;
-
-    // Get filtered activity of this neuron and it's decoder vector
-    value_t *decoder_vector = neuron_decoder_vector(n);
-
-    // Loop through output dimensions and apply PES to decoder values offset by output offset
-    for(uint d = 0; d < filtered_input->d_in; d++)
+    if(parameters->activity_filter_index == -1)
     {
-      decoder_vector[d + parameters->decoder_output_offset] -= (parameters->learning_rate * filtered_error_signal[d]);
+      // Extract input signal from filter
+      const filtered_input_buffer_t *filtered_input = g_input_modulatory.filters[parameters->error_signal_filter_index];
+      const value_t *filtered_error_signal = filtered_input->filtered;
+
+      // Get filtered activity of this neuron and it's decoder vector
+      value_t *decoder_vector = neuron_decoder_vector(n);
+
+      // Loop through output dimensions and apply PES to decoder values offset by output offset
+      for(uint d = 0; d < filtered_input->d_in; d++)
+      {
+        decoder_vector[d + parameters->decoder_output_offset] -= (parameters->learning_rate * filtered_error_signal[d]);
+      }
     }
   }
 }
