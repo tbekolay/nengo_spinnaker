@@ -6,9 +6,11 @@ import nengo
 from nengo.cache import NoDecoderCache
 from nengo.utils import numpy as npext
 import numpy as np
+from rig.machine import Cores, SDRAM
+from rig.place_and_route.constraints import LocationConstraint
 from six import iteritems, itervalues
 
-from nengo_spinnaker.netlist import Net, Netlist
+from nengo_spinnaker.netlist import Net, Netlist, Vertex
 from nengo_spinnaker.utils import collections as collections_ext
 from nengo_spinnaker.utils.keyspaces import KeyspaceContainer
 
@@ -321,6 +323,17 @@ class Model(object):
         load_functions = collections_ext.noneignoringlist()
         before_simulation_functions = collections_ext.noneignoringlist()
         after_simulation_functions = collections_ext.noneignoringlist()
+        nets = list()
+
+        # ***TEMPORARY***: Add a vertex with no requirements which can be used
+        # to pull all ethernet connected things towards chip (0, 0).
+        anchor_vertex = Vertex(resources={Cores: 0})
+        anchor_vertex.constraints.append(LocationConstraint(
+            anchor_vertex, (0, 0)))
+        anchor_net = Net(anchor_vertex, list(),
+                         1000, self.keyspaces["anchor"])
+        vertices.append(anchor_vertex)
+        nets.append(anchor_net)
 
         for op in itertools.chain(itervalues(self.object_operators),
                                   self.extra_operators):
@@ -335,6 +348,14 @@ class Model(object):
             before_simulation_functions.append(pre_fn)
             after_simulation_functions.append(post_fn)
 
+            # ***TEMPORARY***: Add all SDP related vertices to the sinks of the
+            # anchor net.
+            if "SDP" in op.__class__.__name__ and vxs is not None:
+                if isinstance(vxs, list):
+                    anchor_net.sinks.extend(vxs)
+                else:
+                    anchor_net.sinks.append(vxs)
+
         # Construct the groups set
         groups = list()
         for vxs in itervalues(operator_vertices):
@@ -344,7 +365,6 @@ class Model(object):
                 groups.append(set(vxs))
 
         # Construct nets from the signals
-        nets = list()
         for signal in itertools.chain(itervalues(self.connections_signals),
                                       self.extra_signals):
             # Get the source and sink vertices
