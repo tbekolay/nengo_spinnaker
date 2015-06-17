@@ -208,6 +208,7 @@ class EnsembleLIF(object):
                 # Add a new learning rule to the Voja region
                 # **NOTE** divide learning rate by dt
                 # to account for activity scaling
+                '''
                 self.voja_region.learning_rules.append(
                     VojaLearningRule(
                         learning_rate=l_type.learning_rate / model.dt,
@@ -215,6 +216,7 @@ class EnsembleLIF(object):
                         encoder_offset=,
                         decoded_input_filter_index=,
                         activity_filter_index=activity_filter_index))
+                '''
             else:
                 raise NotImplementedError(
                     "SpiNNaker does not support %s learning rule." % l_type
