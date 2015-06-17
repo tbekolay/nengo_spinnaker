@@ -22,7 +22,8 @@ value_t* input_filter_initialise(input_filter_t* input,
 
 
 // Filter initialisation
-bool input_filter_get_filters(input_filter_t* input, address_t filter_region) {
+bool input_filter_get_filters(input_filter_t* input, address_t filter_region)
+{
   input->n_filters = filter_region[0];
 
   io_printf(IO_BUF, "[Filters] n_filters = %d, n_input_dimensions = %d\n",
@@ -54,7 +55,8 @@ bool input_filter_get_filters(input_filter_t* input, address_t filter_region) {
 
 // Filter routers initialisation
 bool input_filter_get_filter_routes(input_filter_t* input,
-                                    address_t routing_region) {
+                                    address_t routing_region)
+{
   input->n_routes = routing_region[0];
 
   io_printf(IO_BUF, "[Common/Input] %d filter routes.\n", input->n_routes);
@@ -78,9 +80,10 @@ bool input_filter_get_filter_routes(input_filter_t* input,
 
 
 // Input step
-void input_filter_step(input_filter_t* input, bool allocate_accumulator) {
+void input_filter_step(input_filter_t* input, bool update_accumulator)
+{
   // Zero the input accumulator
-  if(allocate_accumulator)
+  if(update_accumulator)
   {
     for (uint d = 0; d < input->n_dimensions; d++)
     {
@@ -96,7 +99,7 @@ void input_filter_step(input_filter_t* input, bool allocate_accumulator) {
 
     // If required, accumulate the value in 
     // The global input accumulator.
-    if(allocate_accumulator)
+    if(update_accumulator)
     {
       for (uint d = 0; d < input->n_dimensions; d++)
       {
@@ -107,7 +110,8 @@ void input_filter_step(input_filter_t* input, bool allocate_accumulator) {
 }
 
 // Incoming spike callback
-bool input_filter_mcpl_rx(input_filter_t* input, uint key, uint payload) {
+bool input_filter_mcpl_rx(input_filter_t* input, uint key, uint payload)
+{
   /*
    * 1. Look up key in input routing table entry
    * 2. Select appropriate filter

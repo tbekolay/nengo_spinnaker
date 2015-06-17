@@ -25,44 +25,46 @@ void c_main(void) {
     io_printf(IO_BUF, "[Ensemble] Failed to malloc inhib gains.\n");
     return;
   }
-  spin1_memcpy(g_ensemble.inhib_gain, region_start(10, address),
+  spin1_memcpy(g_ensemble.inhib_gain, region_start(6, address),
                g_ensemble.n_neurons * sizeof(value_t));
   for (uint n = 0; n < g_ensemble.n_neurons; n++) {
     io_printf(IO_BUF, "Inhib gain[%d] = %k\n", n, g_ensemble.inhib_gain[n]);
   }
 
   // Load subcomponents
-  if (!input_filter_get_filters(&g_input, region_start(6, address)) ||
-      !input_filter_get_filter_routes(&g_input, region_start(7, address)) ||
-      !input_filter_get_filters(&g_input_inhibitory, region_start(8, address)) ||
-      !input_filter_get_filter_routes(&g_input_inhibitory, region_start(9, address)) ||
-      !input_filter_get_filters(&g_input_modulatory, region_start(11, address)) ||
-      !input_filter_get_filter_routes(&g_input_modulatory, region_start(12, address))) 
+  if (!input_filter_get_filters(&g_input, region_start(7, address)) ||
+    !input_filter_get_filter_routes(&g_input, region_start(8, address)) ||
+    !input_filter_get_filters(&g_input_inhibitory, region_start(9, address)) ||
+    !input_filter_get_filter_routes(&g_input_inhibitory, region_start(10, address)) ||
+    !input_filter_get_filters(&g_input_modulatory, region_start(11, address)) ||
+    !input_filter_get_filter_routes(&g_input_modulatory, region_start(12, address)) ||
+    !input_filter_get_filters(&g_input_learnt_encoder, region_start(13, address)) ||
+    !input_filter_get_filter_routes(&g_input_learnt_encoder, region_start(14, address)))
   {
     io_printf(IO_BUF, "[Ensemble] Failed to start.\n");
     return;
   }
   
-  if(!get_pes(region_start(13, address)))
+  if(!get_pes(region_start(15, address)))
   {
     io_printf(IO_BUF, "[Ensemble] Failed to start.\n");
     return;
   }
 
-  if(!get_voja(region_start(14, address)))
+  if(!get_voja(region_start(16, address)))
   {
     io_printf(IO_BUF, "[Ensemble] Failed to start.\n");
     return;
   }
 
-  if(!get_filtered_activity(region_start(15, address)))
+  if(!get_filtered_activity(region_start(17, address)))
   {
     io_printf(IO_BUF, "[Ensemble] Failed to start.\n");
     return;
   }
   
   // Set up recording
-  if (!record_buffer_initialise(&g_ensemble.recd, region_start(16, address),
+  if (!record_buffer_initialise(&g_ensemble.recd, region_start(18, address),
                                 simulation_ticks, g_ensemble.n_neurons)) {
     io_printf(IO_BUF, "[Ensemble] Failed to start.\n");
     return;

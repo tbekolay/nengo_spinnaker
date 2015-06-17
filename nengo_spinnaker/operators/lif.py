@@ -88,6 +88,8 @@ class EnsembleLIF(object):
         # Loop through outgoing learnt connections
         mod_filters = list()
         mod_keyspace_routes = list()
+        learnt_encoder_filters = list()
+        learnt_encoder_routes = list()
         for sig, conns in iteritems(outgoing[EnsembleOutputPort.learnt]):
             # If this learning rule is PES
             l_type = conns[0].learning_rule_type
@@ -154,6 +156,7 @@ class EnsembleLIF(object):
         # Create, initially empty, Voja region
         self.voja_region = VojaRegion()
 
+
         # Loop through incoming learnt connections
         for sig, conns in iteritems(incoming[EnsembleInputPort.learnt]):
             # If this learning rule is Voja
@@ -182,6 +185,16 @@ class EnsembleLIF(object):
                 else:
                     learning_signal_filter_index = -1
 
+                # Cache the offset into the encoder
+                # where the learning rule should operate
+                encoder_offset = encoders_with_gain.shape[1]
+
+                # Copy the original encoders
+                base_encoders = encoders_with_gain[:,:self.ensemble.size_in]
+                encoders_with_gain = np.hstack((encoders_with_gain,
+                                                base_encoders))
+
+                print "ENCODERS:", encoders_with_gain.shape
                 # Either add a new filter to the filtered activity
                 # region or get the index of the existing one
                 activity_filter_index = \
@@ -211,13 +224,16 @@ class EnsembleLIF(object):
         # the region.
         self.encoders_region = regions.MatrixRegion(
             tp.np_to_fix(encoders_with_gain),
-            sliced_dimension=regions.MatrixPartitioning.rows
+            sliced_dimension=regions.MatrixPartitioning.rows,
+            prepend_n_columns=True
         )
 
         # Combine the direct input with the bias before converting to S1615 and
         # creating the region.
-        bias_with_di = params.bias + np.dot(encoders_with_gain,
-                                            self.direct_input)
+        tiled_direct_input = np.tile(
+            self.direct_input, encoders_with_gain.shape[1] // self.ensemble.size_in)
+        bias_with_di = params.bias + np.dot(encoders_with_gain, tiled_direct_input)
+
         assert bias_with_di.ndim == 1
         self.bias_region = regions.MatrixRegion(
             tp.np_to_fix(bias_with_di),
@@ -228,6 +244,12 @@ class EnsembleLIF(object):
         self.mod_filters = FilterRegion(mod_filters, model.dt)
         self.mod_filter_routing = FilterRoutingRegion(
             mod_keyspace_routes, model.keyspaces.filter_routing_tag)
+
+        # Create learnt encoder filter and routing regions
+        self.learnt_encoder_filters = FilterRegion(learnt_encoder_filters,
+                                                   model.dt)
+        self.learnt_encoder_routing = FilterRoutingRegion(
+            learnt_encoder_routes, model.keyspaces.filter_routing_tag)
 
         # Now decoder is fully built, extract size
         size_out = decoders.shape[1]
@@ -262,13 +284,15 @@ class EnsembleLIF(object):
             self.encoders_region,
             self.decoders_region,
             self.output_keys_region,
+            self.gain_region,
             self.input_filters,
             self.input_filter_routing,
             self.inhib_filters,
             self.inhib_filter_routing,
-            self.gain_region,
             self.mod_filters,
             self.mod_filter_routing,
+            self.learnt_encoder_filters,
+            self.learnt_encoder_routing,
             self.pes_region,
             self.voja_region,
             self.filtered_activity_region,

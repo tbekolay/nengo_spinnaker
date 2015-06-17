@@ -75,7 +75,7 @@ bool input_filter_get_filter_routes(input_filter_t *input,
  *  Accumulated filtered values will be placed in the input field of the
  *  `input_filter_t` struct.
  */
-void input_filter_step(input_filter_t *input, bool allocate_accumulator);
+void input_filter_step(input_filter_t *input, bool update_accumulator);
 
 /*! \brief Callback handler for a incoming dimensional MC packet.
  *  \returns True if the key routed to a filter within this input_filter

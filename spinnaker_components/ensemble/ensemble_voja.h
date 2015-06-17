@@ -54,6 +54,9 @@ extern voja_parameters_t *g_voja_learning_rules;
 //----------------------------------
 // Inline functions
 //----------------------------------
+/**
+* \brief Helper to get the Voja learning rate - can be modified at runtime with a signal
+*/
 static inline value_t voja_get_learning_rate(const voja_parameters_t *parameters)
 {
     // If a learning signal filter index is specified, read the value
@@ -68,6 +71,7 @@ static inline value_t voja_get_learning_rate(const voja_parameters_t *parameters
       return parameters->learning_rate;
     }
 }
+
 /**
 * \brief When using non-filtered activity, applies Voja when neuron spikes
 */

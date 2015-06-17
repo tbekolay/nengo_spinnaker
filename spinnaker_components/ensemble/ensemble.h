@@ -84,13 +84,22 @@ typedef struct ensemble_parameters {
 
 /* Parameters and Buffers ***************************************************/
 extern ensemble_parameters_t g_ensemble;  //!< Global parameters
-extern uint g_output_period;       //!< Delay in transmitting decoded output
+extern uint g_output_period;              //!< Delay in transmitting decoded output
 
 extern uint g_n_output_dimensions;
 
-extern input_filter_t g_input;     //!< Input filters and buffers
-extern input_filter_t g_input_inhibitory;     //!< Input filters and buffers
-extern input_filter_t g_input_modulatory;     //!< Input filters and buffers
+// Input filters and buffers for general and inhibitory inputs. Their outputs
+// are summed into accumulators which are used to drive the standard neural input
+extern input_filter_t g_input;
+extern input_filter_t g_input_inhibitory;
+
+// Input filters and buffers for modulatory signals. Their
+// outputs are left seperate for use by learning rules
+extern input_filter_t g_input_modulatory;
+
+// Input filters and buffers for signals to be encoded by learnt encoders.
+// Each output is encoded by a seperate encoder so these are also left seperate
+extern input_filter_t g_input_learnt_encoder;
 
 /* Functions ****************************************************************/
 /**
