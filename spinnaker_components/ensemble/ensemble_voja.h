@@ -84,7 +84,21 @@ static inline void voja_neuron_spiked(uint n)
     const voja_parameters_t *parameters = &g_voja_learning_rules[l];
     if(parameters->activity_filter_index == -1)
     {
+      // Get learning rate
+      const value_t learning_rate = voja_get_learning_rate(parameters);
 
+      // Extract decoded input signal from filter
+      const filtered_input_buffer_t *decoded_input = g_input.filters[parameters->decoded_input_filter_index];
+      const value_t *decoded_input_signal = decoded_input->filtered;
+
+      // Get this neuron's encoder vector, offset by the encoder offset
+      value_t *encoder_vector = neuron_encoder_vector(n) + parameters->encoder_offset;
+
+      // Loop through input dimensions
+      for(uint d = 0; d < decoded_input->d_in; d++)
+      {
+        encoder_vector[d] += learning_rate * (decoded_input_signal[d] - encoder_vector[d]);
+      }
     }
   }
 }
