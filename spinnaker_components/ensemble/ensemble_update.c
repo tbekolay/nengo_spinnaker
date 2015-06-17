@@ -130,13 +130,15 @@ void ensemble_update(uint ticks, uint arg1)
       // Apply effect of neuron spiking to filtered activities
       filtered_activity_neuron_spiked(n);
 
-      // Update non-filtered PES filtered
+      // Update non-filtered learning rules
       pes_neuron_spiked(n);
+      voja_neuron_spiked(n);
     }
   }
 
-  // Apply PES learning to filtered activity
+  // Update filtered learning rules
   pes_step();
+  voja_step();
 
   // Transmit decoded Ensemble representation
   for (uint output_index = 0; output_index < g_n_output_dimensions;

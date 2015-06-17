@@ -28,7 +28,7 @@ bool data_get_bias(address_t addr, uint n_neurons)
   return true;
 }
 
-bool data_get_encoders(address_t addr, uint n_neurons, uint n_input_dimensions)
+bool data_get_encoders(address_t addr, uint n_neurons)
 {
   uint encoder_width = *addr;
   spin1_memcpy( g_ensemble.encoders, &addr[1],

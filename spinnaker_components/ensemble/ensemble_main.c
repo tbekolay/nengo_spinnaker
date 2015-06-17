@@ -15,7 +15,7 @@ void c_main(void) {
 
   // Get data
   data_get_bias(region_start(2, address), g_ensemble.n_neurons);
-  data_get_encoders(region_start(3, address), g_ensemble.n_neurons, g_input.n_dimensions);
+  data_get_encoders(region_start(3, address), g_ensemble.n_neurons);
   data_get_decoders(region_start(4, address), g_ensemble.n_neurons, g_n_output_dimensions);
   data_get_keys(region_start(5, address), g_n_output_dimensions);
 

@@ -156,7 +156,6 @@ class EnsembleLIF(object):
         # Create, initially empty, Voja region
         self.voja_region = VojaRegion()
 
-
         # Loop through incoming learnt connections
         for sig, conns in iteritems(incoming[EnsembleInputPort.learnt]):
             # If this learning rule is Voja
@@ -185,36 +184,42 @@ class EnsembleLIF(object):
                 else:
                     learning_signal_filter_index = -1
 
-                # Cache the offset into the encoder
+                # Cache the index of the input filter containing
+                # the input signal and the offset into the encoder
                 # where the learning rule should operate
+                decoded_input_filter_index = len(learnt_encoder_filters)
                 encoder_offset = encoders_with_gain.shape[1]
 
-                # Copy the original encoders
+                # Create a duplicate copy of the original size_in columns of
+                # the encoder matrix for modification by this learning rule
                 base_encoders = encoders_with_gain[:,:self.ensemble.size_in]
                 encoders_with_gain = np.hstack((encoders_with_gain,
                                                 base_encoders))
 
-                print "ENCODERS:", encoders_with_gain.shape
+                # Add learnt connection to list of filters
+                # and routes with learnt encoders
+                learnt_encoder_filters, learnt_encoder_routes = add_filters(
+                    learnt_encoder_filters, learnt_encoder_routes,
+                    {sig: conns}, minimise=False)
+
                 # Either add a new filter to the filtered activity
                 # region or get the index of the existing one
                 activity_filter_index = \
                     self.filtered_activity_region.add_get_filter(
                         l_type.post_tau)
 
-                print "Voja filter:%d" % learning_signal_filter_index
+                print "Voja learning_signal_filter_index:%d, encoder_offset:%u, decoded_input_filter_index:%u, activity_filter_index:%d" % (learning_signal_filter_index, encoder_offset, decoded_input_filter_index, activity_filter_index)
 
                 # Add a new learning rule to the Voja region
                 # **NOTE** divide learning rate by dt
                 # to account for activity scaling
-                '''
                 self.voja_region.learning_rules.append(
                     VojaLearningRule(
-                        learning_rate=l_type.learning_rate / model.dt,
+                        learning_rate=l_type.learning_rate,
                         learning_signal_filter_index=learning_signal_filter_index,
-                        encoder_offset=,
-                        decoded_input_filter_index=,
+                        encoder_offset=encoder_offset,
+                        decoded_input_filter_index=decoded_input_filter_index,
                         activity_filter_index=activity_filter_index))
-                '''
             else:
                 raise NotImplementedError(
                     "SpiNNaker does not support %s learning rule." % l_type
@@ -493,7 +498,7 @@ class VojaRegion(regions.Region):
         for l in self.learning_rules:
             data = struct.pack(
                 "<Ii2Ii",
-                tp.value_to_fix(l.learning_rate / n_neurons),
+                tp.value_to_fix(l.learning_rate),
                 l.learning_signal_filter_index,
                 l.encoder_offset,
                 l.decoded_input_filter_index,
