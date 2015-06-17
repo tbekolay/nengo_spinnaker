@@ -14,6 +14,7 @@
 #include "ensemble_filtered_activity.h"
 #include "ensemble_output.h"
 #include "ensemble_pes.h"
+#include "ensemble_voja.h"
 
 uint lfsr = 1;                   //!< LFSR for spike perturbation
 

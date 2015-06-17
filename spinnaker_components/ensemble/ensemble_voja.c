@@ -68,11 +68,11 @@ bool get_voja(address_t address)
     memcpy(g_voja_learning_rules, &address[1], g_num_voja_learning_rules * sizeof(voja_parameters_t));
     
     // Display debug
-    for(uint32_t l = 0; l < g_num_pes_learning_rules; l++)
+    for(uint32_t l = 0; l < g_num_voja_learning_rules; l++)
     {
       const voja_parameters_t *parameters = &g_voja_learning_rules[l];
-      //io_printf(IO_BUF, "\tRule %u, Learning rate:%k, Error signal filter index:%u, Decoder output offset:%u, Activity filter index:%u\n",
-      //         l, parameters->learning_rate, parameters->error_signal_filter_index, parameters->decoder_output_offset, parameters->activity_filter_index);
+      io_printf(IO_BUF, "\tRule %u, Learning rate:%k, Learning signal filter index:%d, Encoder output offset:%u, Decoded input filter index:%u, Activity filter index:%u\n",
+                l, parameters->learning_rate, parameters->learning_signal_filter_index, parameters->encoder_offset, parameters->decoded_input_filter_index, parameters->activity_filter_index);
     }
   }
   return true;
@@ -90,7 +90,7 @@ void voja_step()
     value_t learning_rate = parameters->learning_rate;
     if(parameters->learning_signal_filter_index != -1)
     {
-      learning_rate *= g_input_modulatory.filters[parameters->learning_signal_filter_index];
+      learning_rate *= g_input_modulatory.filters[parameters->learning_signal_filter_index]->filtered[0];
     }
 
     // Extract decoded input signal from filter
@@ -109,7 +109,7 @@ void voja_step()
       // Loop through input dimensions
       for(uint d = 0; d < decoded_input->d_in; d++)
       {
-        encoder_vector[d] += learning_rate * filtered_activity[n] * (decoded_input_signal[d] - encoder_vector[d]))
+        encoder_vector[d] += learning_rate * filtered_activity[n] * (decoded_input_signal[d] - encoder_vector[d]);
       }
     }
   }

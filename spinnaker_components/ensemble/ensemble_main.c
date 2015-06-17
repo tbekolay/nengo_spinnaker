@@ -1,6 +1,8 @@
 #include "ensemble.h"
 #include "ensemble_data.h"
+#include "ensemble_filtered_activity.h"
 #include "ensemble_pes.h"
+#include "ensemble_voja.h"
 
 void c_main(void) {
   // Set the system up
@@ -47,14 +49,20 @@ void c_main(void) {
     return;
   }
 
-  if(!get_filtered_activity(region_start(14, address)))
+  if(!get_voja(region_start(14, address)))
+  {
+    io_printf(IO_BUF, "[Ensemble] Failed to start.\n");
+    return;
+  }
+
+  if(!get_filtered_activity(region_start(15, address)))
   {
     io_printf(IO_BUF, "[Ensemble] Failed to start.\n");
     return;
   }
   
   // Set up recording
-  if (!record_buffer_initialise(&g_ensemble.recd, region_start(15, address),
+  if (!record_buffer_initialise(&g_ensemble.recd, region_start(16, address),
                                 simulation_ticks, g_ensemble.n_neurons)) {
     io_printf(IO_BUF, "[Ensemble] Failed to start.\n");
     return;

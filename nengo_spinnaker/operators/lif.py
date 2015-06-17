@@ -107,15 +107,16 @@ class EnsembleLIF(object):
             # If this learning rule is PES
             l_type = conns[0].learning_rule_type
             if isinstance(l_type, nengo.PES):
-                # If there is a modulatory connection associated
-                # with this connection's learning rule
+                # If there is a modulatory connection
+                # associated with the learning rule
                 l_rule = conns[0].learning_rule
                 if l_rule in incoming_modulatory:
-                    m = incoming_modulatory[l_rule]
+                    e = incoming_modulatory[l_rule]
 
-                    # Cache what will be this PES rule's
-                    # filter and decoder index
-                    filter_index = len(mod_filters)
+                    # Cache the index of the input filter containing
+                    # the error signal and the offset into the decoder
+                    # where the learning rule should operate
+                    error_filter_index = len(mod_filters)
                     decoder_offset = decoders.shape[1]
 
                     # Get new decoders and output keys for learnt connection
@@ -133,10 +134,10 @@ class EnsembleLIF(object):
                     # Also add output keys to list
                     output_keys.extend(learnt_output_keys)
 
-                    # Add this connection to lists of
-                    # modulatory filters and routes
+                    # Add error connection to lists
+                    # of modulatory filters and routes
                     mod_filters, mod_keyspace_routes = add_filters(
-                        mod_filters, mod_keyspace_routes, m, minimise=False)
+                        mod_filters, mod_keyspace_routes, e, minimise=False)
 
                     # Either add a new filter to the filtered activity
                     # region or get the index of the existing one
@@ -150,9 +151,10 @@ class EnsembleLIF(object):
                     self.pes_region.learning_rules.append(
                         PESLearningRule(
                             learning_rate=l_type.learning_rate / model.dt,
-                            filter_index=filter_index,
+                            error_filter_index=error_filter_index,
                             decoder_offset=decoder_offset,
                             activity_filter_index=activity_filter_index))
+                # Otherwise raise an error - PES requires a modulatory signal
                 else:
                     raise ValueError(
                         "Ensemble %s has outgoing connection with PES "
@@ -164,6 +166,9 @@ class EnsembleLIF(object):
                     "SpiNNaker does not support %s learning rule." % l_type
                 )
 
+        # Create, initially empty, Voja region
+        self.voja_region = VojaRegion()
+
         # Loop through incoming learnt connections
         for sig, conns in iteritems(incoming[EnsembleInputPort.learnt]):
             # If this learning rule is Voja
@@ -172,7 +177,48 @@ class EnsembleLIF(object):
                 # If there is a modulatory connection associated
                 # with this connection's learning rule
                 l_rule = conns[0].learning_rule
-                print "VOJA STUB"
+
+                # If there is a modulatory connection
+                # associated with the learning rule
+                l_rule = conns[0].learning_rule
+                if l_rule in incoming_modulatory:
+                    l = incoming_modulatory[l_rule]
+
+                    # Cache the index of the input filter
+                    # containing the learning signal
+                    learning_signal_filter_index = len(mod_filters)
+
+                    # Add learning connection to lists
+                    # of modulatory filters and routes
+                    mod_filters, mod_keyspace_routes = add_filters(
+                        mod_filters, mod_keyspace_routes, l, minimise=False)
+                # Otherwise, learning is always on so
+                # invalidate learning signal index
+                else:
+                    learning_signal_filter_index = -1
+
+                # Either add a new filter to the filtered activity
+                # region or get the index of the existing one
+                activity_filter_index = \
+                    self.filtered_activity_region.add_get_filter(
+                        l_type.post_tau)
+
+                print "Voja filter:%d" % learning_signal_filter_index
+
+                # Add a new learning rule to the Voja region
+                # **NOTE** divide learning rate by dt
+                # to account for activity scaling
+                self.voja_region.learning_rules.append(
+                    VojaLearningRule(
+                        learning_rate=l_type.learning_rate / model.dt,
+                        learning_signal_filter_index=learning_signal_filter_index,
+                        encoder_offset=,
+                        decoded_input_filter_index=,
+                        activity_filter_index=activity_filter_index))
+            else:
+                raise NotImplementedError(
+                    "SpiNNaker does not support %s learning rule." % l_type
+                )
 
         # Create modulatory filter and routing regions
         self.mod_filters = FilterRegion(mod_filters, model.dt)
@@ -220,6 +266,7 @@ class EnsembleLIF(object):
             self.mod_filters,
             self.mod_filter_routing,
             self.pes_region,
+            self.voja_region,
             self.filtered_activity_region,
             self.spike_region,
         ]
@@ -349,7 +396,7 @@ class SystemRegion(collections.namedtuple(
 
 PESLearningRule = collections.namedtuple(
     "PESLearningRule",
-    "learning_rate, filter_index, decoder_offset, activity_filter_index")
+    "learning_rate, error_filter_index, decoder_offset, activity_filter_index")
 
 
 class PESRegion(regions.Region):
@@ -373,8 +420,42 @@ class PESRegion(regions.Region):
             data = struct.pack(
                 "<4I",
                 tp.value_to_fix(l.learning_rate / n_neurons),
-                l.filter_index,
+                l.error_filter_index,
                 l.decoder_offset,
+                l.activity_filter_index
+            )
+            fp.write(data)
+
+
+VojaLearningRule = collections.namedtuple(
+    "VojaLearningRule",
+    "learning_rate, learning_signal_filter_index, encoder_offset, decoded_input_filter_index, activity_filter_index")
+
+
+class VojaRegion(regions.Region):
+    """Region representing parameters for PES learning rules.
+    """
+    def __init__(self):
+        self.learning_rules = []
+
+    def sizeof(self, *args):
+        return 4 + (len(self.learning_rules) * 20)
+
+    def write_subregion_to_file(self, fp, vertex_slice):
+        # Get length of slice for scaling learning rate
+        n_neurons = float(vertex_slice.stop - vertex_slice.start)
+
+        # Write number of learning rules
+        fp.write(struct.pack("<I", len(self.learning_rules)))
+
+        # Write learning rules
+        for l in self.learning_rules:
+            data = struct.pack(
+                "<Ii3I",
+                tp.value_to_fix(l.learning_rate / n_neurons),
+                l.learning_signal_filter_index,
+                l.encoder_offset,
+                l.decoded_input_filter_index,
                 l.activity_filter_index
             )
             fp.write(data)
