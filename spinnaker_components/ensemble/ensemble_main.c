@@ -4,7 +4,8 @@
 #include "ensemble_pes.h"
 #include "ensemble_voja.h"
 
-void c_main(void) {
+void c_main(void)
+{
   // Set the system up
   io_printf(IO_BUF, "[Ensemble] C_MAIN\n");
   address_t address = system_load_sram();
@@ -63,9 +64,10 @@ void c_main(void) {
     return;
   }
   
-  // Set up recording
-  if (!record_buffer_initialise(&g_ensemble.recd, region_start(18, address),
-                                simulation_ticks, g_ensemble.n_neurons)) {
+  // Set up spike recording
+  if (!record_spike_buffer_initialise(&g_ensemble.recd,
+    region_start(18, address), simulation_ticks, g_ensemble.n_neurons))
+  {
     io_printf(IO_BUF, "[Ensemble] Failed to start.\n");
     return;
   }
@@ -87,7 +89,7 @@ void c_main(void) {
     config_get_n_ticks();
 
     // Reset the spike recording region
-    record_buffer_reset(&g_ensemble.recd);
+    record_spike_buffer_reset(&g_ensemble.recd);
 
     // Perform the simulation
     io_printf(IO_BUF, ">>>>> Running for %d steps\n", simulation_ticks);

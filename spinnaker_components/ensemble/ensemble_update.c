@@ -153,6 +153,6 @@ void ensemble_update(uint ticks, uint arg1)
     gp_output_values[output_index] = 0;
   }
 
-  // Flush the recording buffer
-  record_buffer_flush(&g_ensemble.recd);
+  // Flush the spike recording buffer
+  record_spike_buffer_flush(&g_ensemble.recd);
 }

@@ -34,7 +34,7 @@
 #include "nengo-common.h"
 
 #include "dimensional-io.h"
-#include "recording.h"
+#include "recording_spikes.h"
 #include "input_filter.h"
 
 /* Structs ******************************************************************/
@@ -53,34 +53,38 @@ typedef struct region_system
 
 /** \brief Persistent neuron variables.
   */
-typedef struct neuron_status {
+typedef struct neuron_status
+{
   unsigned char refractory_time : 4;  //!< 4 bits of refractory state
   unsigned int  voltage : 28;           //!< 28 bits stored voltage
 } neuron_status_t;
 
+
 /** \brief Shared ensemble parameters.
   */
-typedef struct ensemble_parameters {
-  uint n_neurons;          //!< Number of neurons \f$N\f$
-  uint machine_timestep;   //!< Machine time step  / useconds
+typedef struct ensemble_parameters
+{
+  uint n_neurons;                 //!< Number of neurons \f$N\f$
+  uint machine_timestep;          //!< Machine time step  / useconds
 
-  uint t_ref;              //!< Refractory period \f$\tau_{ref} - 1\f$ / steps
-  value_t dt_over_t_rc;    //!< \f$\frac{dt}{\tau_{rc}}\$
+  uint t_ref;                     //!< Refractory period \f$\tau_{ref} - 1\f$ / steps
+  value_t dt_over_t_rc;           //!< \f$\frac{dt}{\tau_{rc}}\$
 
-  current_t *i_bias;        //!< Population biases \f$1 \times N\f$
-  neuron_status_t *status;  //!< Neuron status
+  current_t *i_bias;              //!< Population biases \f$1 \times N\f$
+  neuron_status_t *status;        //!< Neuron status
 
-  uint n_inhib_dims;        //!< Number of dimensions in inhibitory connection
-  value_t *inhib_gain;      //!< Gain of inhibitory connection (value of transform)
+  uint n_inhib_dims;              //!< Number of dimensions in inhibitory connection
+  value_t *inhib_gain;            //!< Gain of inhibitory connection (value of transform)
 
-  value_t *encoders;        //!< Encoder values \f$N \times D_{in}\f$ (including gains)
-  value_t *decoders;        //!< Decoder values \f$N \times\sum D_{outs}\f$
+  value_t *encoders;              //!< Encoder values \f$N \times D_{in}\f$ (including gains)
+  value_t *decoders;              //!< Decoder values \f$N \times\sum D_{outs}\f$
 
-  value_t *input;           //!< Input buffer
-  value_t *output;          //!< Output buffer
+  value_t *input;                 //!< Input buffer
+  value_t *output;                //!< Output buffer
 
-  recording_buffer_t recd;  //!< Spike recording
+  recording_spike_buffer_t recd;  //!< Spike recording
 } ensemble_parameters_t;
+
 
 /* Parameters and Buffers ***************************************************/
 extern ensemble_parameters_t g_ensemble;  //!< Global parameters
