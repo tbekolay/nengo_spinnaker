@@ -48,14 +48,15 @@ bool initialise_ensemble(region_system_t *pars) {
   g_ensemble.record_spikes.record = pars->record_spikes;
   g_ensemble.record_learnt_encoders.record = pars->record_learnt_encoders;
   g_ensemble.n_inhib_dims = pars->n_inhibitory_dimensions;
+  g_ensemble.encoder_width = pars->encoder_width;
 
   io_printf(IO_BUF, "[Ensemble] INITIALISE_ENSEMBLE n_neurons = %d," \
-            "timestep = %d, t_ref = %d, dt_over_t_rc = 0x%08x - %u\n",
+            "timestep = %d, t_ref = %d, dt_over_t_rc = 0x%08x, encoder_width = %u\n",
             g_ensemble.n_neurons,
             g_ensemble.machine_timestep,
             g_ensemble.t_ref,
             g_ensemble.dt_over_t_rc,
-            g_ensemble.record_learnt_encoders.record
+            g_ensemble.encoder_width
   );
 
   // Holder for bias currents
@@ -73,7 +74,7 @@ bool initialise_ensemble(region_system_t *pars) {
 
   // Initialise some buffers
   MALLOC_FAIL_FALSE(g_ensemble.encoders,
-                    g_ensemble.n_neurons * pars->n_input_dimensions *
+                    g_ensemble.n_neurons * g_ensemble.encoder_width *
                       sizeof(value_t));
 
   MALLOC_FAIL_FALSE(g_ensemble.decoders,

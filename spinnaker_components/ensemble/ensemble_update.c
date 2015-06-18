@@ -45,12 +45,8 @@ void ensemble_update(uint ticks, uint arg1)
   // Perform neuron updates
   for( uint n = 0; n < g_ensemble.n_neurons; n++ )
   {
-    // If this neuron is refractory then skip any further processing
-    if( neuron_refractory( n ) != 0 )
-    {
-      decrement_neuron_refractory( n );
-      continue;
-    }
+    // Is this neuron in its refractory period
+    bool in_refractory_period = (neuron_refractory(n) != 0);
 
     // Include neuron bias
     current_t i_membrane = (g_ensemble.i_bias[n] +
@@ -58,12 +54,6 @@ void ensemble_update(uint ticks, uint arg1)
 
     // Extract this neurons encoder vector
     const value_t *encoder_vector = neuron_encoder_vector(n);
-
-    // Encode the input and add to the membrane current
-    for(uint d = 0; d < g_input.n_dimensions; d++)
-    {
-      i_membrane += encoder_vector[d] * g_ensemble.input[d];
-    }
 
     // Loop through learnt input signals and encoder slices
     uint f = 0;
@@ -79,17 +69,34 @@ void ensemble_update(uint ticks, uint arg1)
 
       // Record learnt encoders
       // **NOTE** idea here is that by interspersing these between encoding
-      // operations, write buffer should get a chance to be flushed
+      // operations, write buffer should have time to be written out
       record_learnt_encoders(&g_ensemble.record_learnt_encoders,
         g_input.n_dimensions, learnt_encoder_vector);
 
-      // Loop through filter dimensions
-      for(uint d = 0; d < filtered_input->d_in; d++)
+      // If neuron's not in refractory period, loop through filter
+      // dimensions and apply input encoded by learnt encoders
+      if(!in_refractory_period)
       {
-        // Encode filtered input signal
-        i_membrane += learnt_encoder_vector[d] * filtered_input_signal[d];
+        for(uint d = 0; d < filtered_input->d_in; d++)
+        {
+          i_membrane += learnt_encoder_vector[d] * filtered_input_signal[d];
+        }
       }
     }
+
+    // If this neuron is refractory then skip any further processing
+    if(in_refractory_period)
+    {
+      decrement_neuron_refractory( n );
+      continue;
+    }
+
+    // Encode the input and add to the membrane current
+    for(uint d = 0; d < g_input.n_dimensions; d++)
+    {
+      i_membrane += encoder_vector[d] * g_ensemble.input[d];
+    }
+
 
     voltage_t v_voltage = neuron_voltage(n);
     voltage_t v_delta = ( i_membrane - v_voltage ) * g_ensemble.dt_over_t_rc;

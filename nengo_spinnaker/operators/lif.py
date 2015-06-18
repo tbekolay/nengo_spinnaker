@@ -154,7 +154,7 @@ class EnsembleLIF(object):
                 )
 
         # Create, initially empty, Voja region
-        self.voja_region = VojaRegion()
+        self.voja_region = VojaRegion(params.gain / self.ensemble.radius)
 
         # Loop through incoming learnt connections
         for sig, conns in iteritems(incoming[EnsembleInputPort.learnt]):
@@ -208,8 +208,6 @@ class EnsembleLIF(object):
                     self.filtered_activity_region.add_get_filter(
                         l_type.post_tau)
 
-                print "Voja learning_signal_filter_index:%d, encoder_offset:%u, decoded_input_filter_index:%u, activity_filter_index:%d" % (learning_signal_filter_index, encoder_offset, decoded_input_filter_index, activity_filter_index)
-
                 # Add a new learning rule to the Voja region
                 # **NOTE** divide learning rate by dt
                 # to account for activity scaling
@@ -229,8 +227,7 @@ class EnsembleLIF(object):
         # the region.
         self.encoders_region = regions.MatrixRegion(
             tp.np_to_fix(encoders_with_gain),
-            sliced_dimension=regions.MatrixPartitioning.rows,
-            prepend_n_columns=True
+            sliced_dimension=regions.MatrixPartitioning.rows
         )
 
         # Combine the direct input with the bias before converting to S1615 and
@@ -297,6 +294,7 @@ class EnsembleLIF(object):
         # Create the regions list
         self.regions = [
             SystemRegion(self.ensemble.size_in,
+                         encoders_with_gain.shape[1],
                          size_out,
                          model.machine_timestep,
                          self.ensemble.neuron_type.tau_ref,
@@ -367,7 +365,6 @@ class EnsembleLIF(object):
                            after_simulation_function=self.after_simulation)
 
     def load_to_machine(self, netlist, controller):
-        print "Load:", self.ensemble.label
         """Load the ensemble data into memory."""
         # For each slice
         self.spike_recording_mem = dict()
@@ -418,7 +415,7 @@ class EnsembleLIF(object):
                 probed_spikes[:, vertex.slice] = \
                     np.array([[1./simulator.dt if s else 0.0 for s in ss]
                               for ss in spikes])
-        print "Apres-sim:", self.ensemble.label
+
         # If we've probed (learnt) encoders
         if self.probe_encoders:
             # Create empty matrix to hold probed data
@@ -432,8 +429,7 @@ class EnsembleLIF(object):
                 # Read in neuron slice of fixed point values and convert to float
                 fp = np.fromstring(mem.read(), dtype=np.int32)
                 slice_encoders = tp.fix_to_np(fp)
-                np.save("test.npy", fp)
-                print "WHOOP"
+
                 # Reshape and insert into probed encoders
                 n_neurons = vertex.slice.stop - vertex.slice.start
                 slice_encoders = np.reshape(
@@ -467,7 +463,7 @@ class EnsembleLIF(object):
 
 
 class SystemRegion(collections.namedtuple(
-    "SystemRegion", "n_input_dimensions, n_output_dimensions, "
+    "SystemRegion", "n_input_dimensions, encoder_width, n_output_dimensions, "
                     "machine_timestep, t_ref, t_rc, dt, "
                     "probe_spikes, probe_encoders")):
     """Region of memory describing the general parameters of a LIF ensemble."""
@@ -476,7 +472,7 @@ class SystemRegion(collections.namedtuple(
         """Get the number of bytes necessary to represent this region of
         memory.
         """
-        return 9 * 4  # 9 words
+        return 10 * 4  # 9 words
 
     sizeof_padded = sizeof
 
@@ -484,11 +480,11 @@ class SystemRegion(collections.namedtuple(
         """Write the system region for a specific vertex slice to a file-like
         object.
         """
-        print "PROBE:",self.probe_encoders
         n_neurons = vertex_slice.stop - vertex_slice.start
         data = struct.pack(
-            "<9I",
+            "<10I",
             self.n_input_dimensions,
+            self.encoder_width,
             self.n_output_dimensions,
             n_neurons,
             self.machine_timestep,
@@ -541,11 +537,15 @@ VojaLearningRule = collections.namedtuple(
 class VojaRegion(regions.Region):
     """Region representing parameters for PES learning rules.
     """
-    def __init__(self):
+    def __init__(self, voja_scale):
         self.learning_rules = []
+        self.voja_scale = voja_scale
 
-    def sizeof(self, *args):
-        return 4 + (len(self.learning_rules) * 20)
+    def sizeof(self, vertex_slice):
+        if len(self.learning_rules) == 0:
+            return 4
+        else:
+            return 4 + (len(self.learning_rules) * 20) + ((vertex_slice.stop - vertex_slice.start) * 4)
 
     def write_subregion_to_file(self, fp, vertex_slice):
         # Get length of slice for scaling learning rate
@@ -558,13 +558,17 @@ class VojaRegion(regions.Region):
         for l in self.learning_rules:
             data = struct.pack(
                 "<Ii2Ii",
-                tp.value_to_fix(0.0),#l.learning_rate),
+                tp.value_to_fix(l.learning_rate),
                 l.learning_signal_filter_index,
                 l.encoder_offset,
                 l.decoded_input_filter_index,
                 l.activity_filter_index
             )
             fp.write(data)
+
+        # If there are any learning rules, write voja scale
+        if len(self.learning_rules) > 0:
+            fp.write(tp.np_to_fix(self.voja_scale[vertex_slice]).tostring())
 
 
 def get_decoders_and_keys(model, signals_connections, minimise=False):
@@ -647,7 +651,7 @@ class FilteredActivityRegion(regions.Region):
 
     def add_get_filter(self, time_constant):
         # If time constant is none or less than dt,
-        # a filter is not required so return -1
+        # a filter is not required so return -1It's amazing just how much rope that lack of memory protection gives one...
         if time_constant is None or time_constant < self.dt:
             return -1
         # Otherwise

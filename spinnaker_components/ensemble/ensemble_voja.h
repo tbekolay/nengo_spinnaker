@@ -50,6 +50,7 @@ typedef struct voja_parameters_t
 //----------------------------------
 extern uint32_t g_num_voja_learning_rules;
 extern voja_parameters_t *g_voja_learning_rules;
+extern value_t *g_voja_scale;
 
 //----------------------------------
 // Inline functions
@@ -63,7 +64,8 @@ static inline value_t voja_get_learning_rate(const voja_parameters_t *parameters
     // from it's first dimension and multiply by the constant error rate
     if(parameters->learning_signal_filter_index != -1)
     {
-      return parameters->learning_rate * g_input_modulatory.filters[parameters->learning_signal_filter_index]->filtered[0];
+      value_t positive_learning_rate = 1.0k + g_input_modulatory.filters[parameters->learning_signal_filter_index]->filtered[0];
+      return parameters->learning_rate * positive_learning_rate;
     }
     // Otherwise, just return the constant learning rate
     else
@@ -88,17 +90,20 @@ static inline void voja_neuron_spiked(uint n)
       const value_t learning_rate = voja_get_learning_rate(parameters);
 
       // Extract decoded input signal from filter
-      const filtered_input_buffer_t *decoded_input = g_input.filters[parameters->decoded_input_filter_index];
+      const filtered_input_buffer_t *decoded_input = g_input_learnt_encoder.filters[parameters->decoded_input_filter_index];
       const value_t *decoded_input_signal = decoded_input->filtered;
 
       // Get this neuron's encoder vector, offset by the encoder offset
       value_t *encoder_vector = neuron_encoder_vector(n) + parameters->encoder_offset;
 
+      // Calculate scaling factor for input
+      const value_t input_scale = learning_rate * g_voja_scale[n];
+
       // Loop through input dimensions
-      /*for(uint d = 0; d < decoded_input->d_in; d++)
+      for(uint d = 0; d < decoded_input->d_in; d++)
       {
-        encoder_vector[d] += learning_rate * (decoded_input_signal[d] - encoder_vector[d]);
-      }*/
+        encoder_vector[d] += (input_scale * decoded_input_signal[d]) - (learning_rate * encoder_vector[d]);
+      }
     }
   }
 }

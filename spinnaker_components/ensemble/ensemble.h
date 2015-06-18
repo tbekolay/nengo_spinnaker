@@ -40,9 +40,11 @@
 
 /* Structs ******************************************************************/
 /** \brief Representation of system region. See ::data_system. */
+// **NOTE** it's important to used sized types here!
 typedef struct region_system 
 {
   uint32_t n_input_dimensions;
+  uint32_t encoder_width;
   uint32_t n_output_dimensions;
   uint32_t n_neurons;
   uint32_t machine_timestep;
@@ -82,6 +84,7 @@ typedef struct ensemble_parameters
   uint n_inhib_dims;                      //!< Number of dimensions in inhibitory connection
   value_t *inhib_gain;                    //!< Gain of inhibitory connection (value of transform)
 
+  uint encoder_width;
   value_t *encoders;                      //!< Encoder values \f$N \times D_{in}\f$ (including gains)
   value_t *decoders;                      //!< Decoder values \f$N \times\sum D_{outs}\f$
 
@@ -143,12 +146,12 @@ void ensemble_update( uint arg0, uint arg1 );
 //! Get the encoder value for the given neuron and dimension
 static inline value_t neuron_encoder(uint n, uint d)
 {
-  return g_ensemble.encoders[n * g_input.n_dimensions + d];
+  return g_ensemble.encoders[n * g_ensemble.encoder_width + d];
 }
 
 static inline value_t *neuron_encoder_vector(uint n)
 {
-  return &g_ensemble.encoders[n * g_input.n_dimensions];
+  return &g_ensemble.encoders[n * g_ensemble.encoder_width];
 }
 
 static inline value_t neuron_decoder(uint n, uint d)
