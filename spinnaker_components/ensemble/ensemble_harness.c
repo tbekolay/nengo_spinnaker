@@ -45,15 +45,17 @@ bool initialise_ensemble(region_system_t *pars) {
   g_ensemble.machine_timestep = pars->machine_timestep;
   g_ensemble.t_ref = pars->t_ref;
   g_ensemble.dt_over_t_rc = pars->dt_over_t_rc;
-  g_ensemble.recd.record = pars->record_spikes;
+  g_ensemble.record_spikes.record = pars->record_spikes;
+  g_ensemble.record_learnt_encoders.record = pars->record_learnt_encoders;
   g_ensemble.n_inhib_dims = pars->n_inhibitory_dimensions;
 
   io_printf(IO_BUF, "[Ensemble] INITIALISE_ENSEMBLE n_neurons = %d," \
-            "timestep = %d, t_ref = %d, dt_over_t_rc = 0x%08x\n",
+            "timestep = %d, t_ref = %d, dt_over_t_rc = 0x%08x - %u\n",
             g_ensemble.n_neurons,
             g_ensemble.machine_timestep,
             g_ensemble.t_ref,
-            g_ensemble.dt_over_t_rc
+            g_ensemble.dt_over_t_rc,
+            g_ensemble.record_learnt_encoders.record
   );
 
   // Holder for bias currents

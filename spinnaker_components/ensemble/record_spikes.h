@@ -62,7 +62,8 @@ static inline void record_spike_buffer_flush(spike_recording_buffer_t *buffer)
 
 /*!\brief Record a spike for the given neuron.
  */
-static inline void record_spike(spike_recording_buffer_t *buffer, uint n_neuron) {
+static inline void record_spike(spike_recording_buffer_t *buffer, uint n_neuron)
+{
   // Get the offset within the current buffer, and the specific bit to set
   // We write to the buffer regardless of whether recording is desired or not
   // in order to reduce branching.

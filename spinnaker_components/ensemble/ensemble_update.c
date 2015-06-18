@@ -26,7 +26,7 @@ void ensemble_update(uint ticks, uint arg1)
     spin1_exit(0);
   }
 
-  // Filter inputs, updating accumulator for excitary and inhibitary inputs
+  // Filter inputs, updating accumulator for excitatory and inhibitory inputs
   input_filter_step(&g_input, true);
   input_filter_step(&g_input_inhibitory, true);
   input_filter_step(&g_input_modulatory, false);
@@ -56,11 +56,13 @@ void ensemble_update(uint ticks, uint arg1)
     current_t i_membrane = (g_ensemble.i_bias[n] +
       inhibitory_input * g_ensemble.inhib_gain[n]);
 
+    // Extract this neurons encoder vector
+    const value_t *encoder_vector = neuron_encoder_vector(n);
+
     // Encode the input and add to the membrane current
     for(uint d = 0; d < g_input.n_dimensions; d++)
     {
-      value_t encoder_d = neuron_encoder(n, d);
-      i_membrane += encoder_d * g_ensemble.input[d];
+      i_membrane += encoder_vector[d] * g_ensemble.input[d];
     }
 
     // Loop through learnt input signals and encoder slices
@@ -72,12 +74,20 @@ void ensemble_update(uint ticks, uint arg1)
       const filtered_input_buffer_t *filtered_input = g_input_learnt_encoder.filters[f];
       const value_t *filtered_input_signal = filtered_input->filtered;
 
+      // Get encoder vector for this neuron offset for correct learnt encoder
+      const value_t *learnt_encoder_vector = encoder_vector + e;
+
+      // Record learnt encoders
+      // **NOTE** idea here is that by interspersing these between encoding
+      // operations, write buffer should get a chance to be flushed
+      record_learnt_encoders(&g_ensemble.record_learnt_encoders,
+        g_input.n_dimensions, learnt_encoder_vector);
+
       // Loop through filter dimensions
       for(uint d = 0; d < filtered_input->d_in; d++)
       {
         // Encode filtered input signal
-        value_t encoder_d = neuron_encoder(n, e + d);
-        i_membrane += encoder_d * filtered_input_signal[d];
+        i_membrane += learnt_encoder_vector[d] * filtered_input_signal[d];
       }
     }
 
@@ -116,16 +126,17 @@ void ensemble_update(uint ticks, uint arg1)
       lfsr = (lfsr >> 1) ^ ((-(lfsr & 0x1)) & 0xB400);
 
       // Update the output values
+      const value_t *decoder_vector = neuron_decoder_vector(n);
       for( uint d = 0; d < g_n_output_dimensions; d++ )
       {
         /* io_printf( IO_STD, "[%d] = %.3k (0x%08x)",
           d, neuron_decoder(n,d), neuron_decoder(n,d) ); */
-        g_ensemble.output[d] += neuron_decoder( n, d );
+        g_ensemble.output[d] += decoder_vector[d];
       }
       //io_printf( IO_STD, "\n" );
 
       // Record that the spike occurred
-      record_spike(&g_ensemble.recd, n);
+      record_spike(&g_ensemble.record_spikes, n);
 
       // Apply effect of neuron spiking to filtered activities
       filtered_activity_neuron_spiked(n);
@@ -154,5 +165,5 @@ void ensemble_update(uint ticks, uint arg1)
   }
 
   // Flush the spike recording buffer
-  record_spike_buffer_flush(&g_ensemble.recd);
+  record_spike_buffer_flush(&g_ensemble.record_spikes);
 }

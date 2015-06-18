@@ -35,20 +35,22 @@
 
 #include "dimensional-io.h"
 #include "record_spikes.h"
+#include "record_learnt_encoders.h"
 #include "input_filter.h"
 
 /* Structs ******************************************************************/
 /** \brief Representation of system region. See ::data_system. */
 typedef struct region_system 
 {
-  uint n_input_dimensions;
-  uint n_output_dimensions;
-  uint n_neurons;
-  uint machine_timestep;
-  uint t_ref;
+  uint32_t n_input_dimensions;
+  uint32_t n_output_dimensions;
+  uint32_t n_neurons;
+  uint32_t machine_timestep;
+  uint32_t t_ref;
   value_t dt_over_t_rc;
-  bool record_spikes;
-  uint n_inhibitory_dimensions;
+  uint32_t record_spikes;
+  uint32_t record_learnt_encoders;
+  uint32_t n_inhibitory_dimensions;
 } region_system_t;
 
 /** \brief Persistent neuron variables.
@@ -64,25 +66,36 @@ typedef struct neuron_status
   */
 typedef struct ensemble_parameters
 {
-  uint n_neurons;                 //!< Number of neurons \f$N\f$
-  uint machine_timestep;          //!< Machine time step  / useconds
+  //! Number of neurons \f$N\f$
+  uint n_neurons;
 
-  uint t_ref;                     //!< Refractory period \f$\tau_{ref} - 1\f$ / steps
-  value_t dt_over_t_rc;           //!< \f$\frac{dt}{\tau_{rc}}\$
+  //! Machine time step  / useconds
+  uint machine_timestep;
 
-  current_t *i_bias;              //!< Population biases \f$1 \times N\f$
-  neuron_status_t *status;        //!< Neuron status
+  //! Refractory period \f$\tau_{ref} - 1\f$ / steps
+  uint t_ref;
+  value_t dt_over_t_rc;                   //!< \f$\frac{dt}{\tau_{rc}}\$
 
-  uint n_inhib_dims;              //!< Number of dimensions in inhibitory connection
-  value_t *inhib_gain;            //!< Gain of inhibitory connection (value of transform)
+  current_t *i_bias;                      //!< Population biases \f$1 \times N\f$
+  neuron_status_t *status;                //!< Neuron status
 
-  value_t *encoders;              //!< Encoder values \f$N \times D_{in}\f$ (including gains)
-  value_t *decoders;              //!< Decoder values \f$N \times\sum D_{outs}\f$
+  uint n_inhib_dims;                      //!< Number of dimensions in inhibitory connection
+  value_t *inhib_gain;                    //!< Gain of inhibitory connection (value of transform)
 
-  value_t *input;                 //!< Input buffer
-  value_t *output;                //!< Output buffer
+  value_t *encoders;                      //!< Encoder values \f$N \times D_{in}\f$ (including gains)
+  value_t *decoders;                      //!< Decoder values \f$N \times\sum D_{outs}\f$
 
-  spike_recording_buffer_t recd;  //!< Spike recording buffer
+  //! Input buffer
+  value_t *input;
+
+  //! Output buffer
+  value_t *output;
+
+  //! Spike recording buffer
+  spike_recording_buffer_t record_spikes;
+
+  //! Learnt encoder recording buffer
+  encoder_recording_buffer_t record_learnt_encoders;
 } ensemble_parameters_t;
 
 

@@ -300,3 +300,29 @@ def build_neurons_probe(model, probe):
                 probe.target.ensemble.neuron_type.__class__.__name__
             )
         )
+
+
+@Model.probe_builders.register(nengo.connection.LearningRule)
+def build_voja_probe(model, probe):
+    # Extract learning rule type
+    learning_rule_type = probe.target.learning_rule_type
+    learnt_connection = probe.target.connection
+
+    # If we're probing learnt encoders
+    if probe.attr == "scaled_encoders":
+        # If learning rule modifies post-synaptic state
+        if learning_rule_type.post_modifies is not None:
+            # If post-synaptic object is an ensemble, add probe
+            # to the bject operators lists of local probes
+            if isinstance(learnt_connection.post_obj, nengo.Ensemble):
+                ens = learnt_connection.post_obj
+                model.object_operators[ens].local_probes.append(probe)
+                return
+
+    raise NotImplementedError(
+        "SpiNNaker does not currently support probing '{}' on '{}' "
+        .format(
+            probe.attr,
+            learning_rule_type.__class__.__name__
+        )
+    )
