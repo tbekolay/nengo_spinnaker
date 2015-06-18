@@ -1,6 +1,6 @@
-#include "recording_spikes.h"
+#include "record_spikes.h"
 
-bool record_spike_buffer_initialise(recording_spike_buffer_t *buffer,
+bool record_spike_buffer_initialise(spike_recording_buffer_t *buffer,
   address_t region, uint n_blocks, uint n_neurons)
 {
   // Generate and store buffer parameters
@@ -21,7 +21,7 @@ bool record_spike_buffer_initialise(recording_spike_buffer_t *buffer,
   return true;
 }
 
-void record_spike_buffer_reset(recording_spike_buffer_t *buffer)
+void record_spike_buffer_reset(spike_recording_buffer_t *buffer)
 {
   // Reset the position of the recording region
   buffer->_sdram_current = buffer->_sdram_start;

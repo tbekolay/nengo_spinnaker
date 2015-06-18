@@ -34,7 +34,7 @@
 #include "nengo-common.h"
 
 #include "dimensional-io.h"
-#include "recording_spikes.h"
+#include "record_spikes.h"
 #include "input_filter.h"
 
 /* Structs ******************************************************************/
@@ -82,7 +82,7 @@ typedef struct ensemble_parameters
   value_t *input;                 //!< Input buffer
   value_t *output;                //!< Output buffer
 
-  recording_spike_buffer_t recd;  //!< Spike recording
+  spike_recording_buffer_t recd;  //!< Spike recording buffer
 } ensemble_parameters_t;
 
 
@@ -151,23 +151,33 @@ static inline value_t *neuron_decoder_vector(uint n)
 // -- Voltages and refractory periods
 //! Get the membrane voltage for the given neuron
 static inline voltage_t neuron_voltage( uint n )
-  { return kbits( g_ensemble.status[n].voltage ); };
+{
+  return kbits( g_ensemble.status[n].voltage );
+}
 
 //! Set the membrane voltage for the given neuron
 static inline void set_neuron_voltage( uint n, voltage_t v )
-  { g_ensemble.status[n].voltage = ( bitsk( v ) & 0x0fffffff ); };
+{
+  g_ensemble.status[n].voltage = ( bitsk( v ) & 0x0fffffff );
+}
 
 //! Get the refractory status of a given neuron
 static inline uint neuron_refractory( uint n )
-  { return g_ensemble.status[n].refractory_time; };
+{
+  return g_ensemble.status[n].refractory_time;
+};
 
 //! Put the given neuron in a refractory state (zero voltage, set timer)
 static inline void set_neuron_refractory( uint n )
-  { g_ensemble.status[n].refractory_time = g_ensemble.t_ref; };
+{
+  g_ensemble.status[n].refractory_time = g_ensemble.t_ref;
+};
 
 //! Decrement the refractory time for the given neuron
 static inline void decrement_neuron_refractory( uint n )
-  { g_ensemble.status[n].refractory_time--; };
+{
+  g_ensemble.status[n].refractory_time--;
+};
 
 #endif
 

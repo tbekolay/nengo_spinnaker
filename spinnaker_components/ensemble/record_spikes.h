@@ -9,15 +9,15 @@
  *   Theoretical Neuroscience, University of Waterloo
  */
 
-#ifndef __RECORDING_SPIKES_H__
-#define __RECORDING_SPIKES_H__
+#ifndef __RECORD_SPIKES_H__
+#define __RECORD_SPIKES_H__
 
 #include <stdbool.h>
 #include "spin1_api.h"
 #include "common-typedefs.h"
 #include "nengo-common.h"
 
-typedef struct recording_spike_buffer_t
+typedef struct spike_recording_buffer_t
 {
   uint *buffer;         //!< The buffer to write to
   uint block_length;    //!< Size of 1 block of the buffer (in words)
@@ -27,11 +27,11 @@ typedef struct recording_spike_buffer_t
 
   uint *_sdram_start;   //!< Start of the buffer in SDRAM
   uint *_sdram_current; //!< Current location in the SDRAM buffer
-} recording_spike_buffer_t;
+} spike_recording_buffer_t;
 
 /*!\brief Initialise a new recording buffer.
  */
-bool record_spike_buffer_initialise(recording_spike_buffer_t *buffer,
+bool record_spike_buffer_initialise(spike_recording_buffer_t *buffer,
   address_t region, uint n_blocks, uint n_neurons);
 
 /*!\brief Reset the recording region for a new period of simulation.
@@ -43,7 +43,7 @@ void record_spike_buffer_reset();
  * The contents of the buffer will be appended to the recording region in
  * SDRAM, but only if recording is in use.
  */
-static inline void record_spike_buffer_flush(recording_spike_buffer_t *buffer)
+static inline void record_spike_buffer_flush(spike_recording_buffer_t *buffer)
 {
   // Copy the current buffer into SDRAM
   if (buffer->record) {
@@ -62,11 +62,11 @@ static inline void record_spike_buffer_flush(recording_spike_buffer_t *buffer)
 
 /*!\brief Record a spike for the given neuron.
  */
-static inline void record_spike(recording_spike_buffer_t *buffer, uint n_neuron) {
+static inline void record_spike(spike_recording_buffer_t *buffer, uint n_neuron) {
   // Get the offset within the current buffer, and the specific bit to set
   // We write to the buffer regardless of whether recording is desired or not
   // in order to reduce branching.
   buffer->buffer[n_neuron >> 5] |= 1 << (n_neuron & 0x1f);
 }
 
-#endif
+#endif  // __RECORD_SPIKES_H__
