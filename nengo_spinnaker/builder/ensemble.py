@@ -21,6 +21,7 @@ BuiltEnsemble = collections.namedtuple(
 )
 """Parameters which describe an Ensemble."""
 
+
 @Model.source_getters.register(nengo.Ensemble)
 def get_ensemble_source(model, conn):
     ens = model.object_operators[conn.pre_obj]
@@ -98,7 +99,7 @@ def get_learning_rule_sink(model, connection):
     elif pre_modifies is not None:
         # If rule modifies pre-synaptic ensemble and is connected to one
         if ("Ensemble" in pre_modifies and
-            isinstance(learnt_connection.pre_obj, nengo.Ensemble)):
+                isinstance(learnt_connection.pre_obj, nengo.Ensemble)):
 
             # Sink connection into unique port on pre-synaptic
             # ensemble identified by learning rule object
@@ -113,7 +114,7 @@ def get_learning_rule_sink(model, connection):
     elif post_modifies is not None:
         # If rule modifies post-synaptic ensemble and is connected to one
         if ("Ensemble" in post_modifies and
-            isinstance(learnt_connection.post_obj, nengo.Ensemble)):
+                isinstance(learnt_connection.post_obj, nengo.Ensemble)):
 
             # Sink connection into unique port on post-synaptic
             # ensemble identified by learning rule object

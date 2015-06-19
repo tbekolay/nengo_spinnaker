@@ -9,6 +9,7 @@ class EnsembleOutputPort(enum.Enum):
     learnt = 1
     """Output port where decoders are learnt"""
 
+
 class EnsembleInputPort(enum.Enum):
     """Ensemble only input ports."""
     neurons = 0

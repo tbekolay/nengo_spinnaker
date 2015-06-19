@@ -174,7 +174,7 @@ class EnsembleLIF(object):
 
                     # Cache the index of the input filter
                     # containing the learning signal
-                    learning_signal_filter_index = len(mod_filters)
+                    learn_sig_filter_index = len(mod_filters)
 
                     # Add learning connection to lists
                     # of modulatory filters and routes
@@ -183,7 +183,7 @@ class EnsembleLIF(object):
                 # Otherwise, learning is always on so
                 # invalidate learning signal index
                 else:
-                    learning_signal_filter_index = -1
+                    learn_sig_filter_index = -1
 
                 # Cache the index of the input filter containing
                 # the input signal and the offset into the encoder
@@ -193,7 +193,7 @@ class EnsembleLIF(object):
 
                 # Create a duplicate copy of the original size_in columns of
                 # the encoder matrix for modification by this learning rule
-                base_encoders = encoders_with_gain[:,:self.ensemble.size_in]
+                base_encoders = encoders_with_gain[:, :self.ensemble.size_in]
                 encoders_with_gain = np.hstack((encoders_with_gain,
                                                 base_encoders))
 
@@ -215,7 +215,7 @@ class EnsembleLIF(object):
                 self.voja_region.learning_rules.append(
                     VojaLearningRule(
                         learning_rate=l_type.learning_rate,
-                        learning_signal_filter_index=learning_signal_filter_index,
+                        learning_signal_filter_index=learn_sig_filter_index,
                         encoder_offset=encoder_offset,
                         decoded_input_filter_index=decoded_input_filter_index,
                         activity_filter_index=activity_filter_index))
@@ -234,8 +234,10 @@ class EnsembleLIF(object):
         # Combine the direct input with the bias before converting to S1615 and
         # creating the region.
         tiled_direct_input = np.tile(
-            self.direct_input, encoders_with_gain.shape[1] // self.ensemble.size_in)
-        bias_with_di = params.bias + np.dot(encoders_with_gain, tiled_direct_input)
+            self.direct_input,
+            encoders_with_gain.shape[1] // self.ensemble.size_in)
+        bias_with_di = params.bias + np.dot(encoders_with_gain,
+                                            tiled_direct_input)
 
         assert bias_with_di.ndim == 1
         self.bias_region = regions.MatrixRegion(
@@ -290,7 +292,6 @@ class EnsembleLIF(object):
                 raise NotImplementedError(
                     "SpiNNaker does not support %s probe type." % p.attr
                 )
-
 
         # Create the regions list
         self.regions = [
@@ -382,9 +383,11 @@ class EnsembleLIF(object):
                 elif region is self.output_keys_region:
                     self.output_keys_region.write_subregion_to_file(
                         mem, vertex.slice, cluster=vertex.cluster)
-                elif region is self.spike_recording_region and self.probe_spikes:
+                elif (region is self.spike_recording_region
+                      and self.probe_spikes):
                     self.spike_recording_mem[vertex] = mem
-                elif region is self.encoder_recording_region and self.probe_encoders:
+                elif (region is self.encoder_recording_region
+                      and self.probe_encoders):
                     self.encoder_recording_mem[vertex] = mem
                 else:
                     region.write_subregion_to_file(mem, vertex.slice)
@@ -409,7 +412,8 @@ class EnsembleLIF(object):
                 spike_data.frombytes(mem.read())
                 n_neurons = vertex.slice.stop - vertex.slice.start
 
-                bpf = self.spike_recording_region.bytes_per_frame(vertex.slice)*8
+                bpf = self.spike_recording_region.bytes_per_frame(
+                    vertex.slice) * 8
                 spikes = (spike_data[n*bpf:n*bpf + n_neurons] for n in
                           range(n_steps))
 
@@ -420,14 +424,17 @@ class EnsembleLIF(object):
         # If we've probed (learnt) encoders
         if self.probe_encoders:
             # Create empty matrix to hold probed data
-            probed_encoders = np.empty(
-                (n_steps, self.ensemble.n_neurons, self.encoder_recording_region.n_dimensions))
+            probed_encoders = np.empty((
+                n_steps,
+                self.ensemble.n_neurons,
+                self.encoder_recording_region.n_dimensions))
 
             for vertex in self.vertices:
                 mem = self.encoder_recording_mem[vertex]
                 mem.seek(0)
 
-                # Read in neuron slice of fixed point values and convert to float
+                # Read in neuron slice of fixed point
+                # values and convert to float
                 fp = np.fromstring(mem.read(), dtype=np.int32)
                 slice_encoders = tp.fix_to_np(fp)
 
@@ -435,9 +442,13 @@ class EnsembleLIF(object):
                 n_neurons = vertex.slice.stop - vertex.slice.start
                 slice_encoders = np.reshape(
                     slice_encoders,
-                    (n_steps, n_neurons, self.encoder_recording_region.n_dimensions)
+                    (
+                        n_steps,
+                        n_neurons,
+                        self.encoder_recording_region.n_dimensions
+                    )
                 )
-                probed_encoders[:,vertex.slice.start:vertex.slice.stop,:] = \
+                probed_encoders[:, vertex.slice.start:vertex.slice.stop, :] = \
                     slice_encoders
 
         # Store the data associated with every probe, applying the sampling
@@ -457,10 +468,13 @@ class EnsembleLIF(object):
             if p.attr == "scaled_encoders":
                 # **TODO** rejoin learning rule with encoder offset
                 # Copy sliced data out of probed encoders
-                simulator.data[p] = probed_encoders[::sample_every, neuron_slice,:]
-            # Otherwise, if it's a spike probe, copy sliced data out of probed spikes
+                simulator.data[p] = \
+                    probed_encoders[::sample_every, neuron_slice, :]
+            # Otherwise, if it's a spike probe,
+            # copy sliced data out of probed spikes
             elif p.attr in ("output", "spikes"):
-                simulator.data[p] = probed_spikes[::sample_every, neuron_slice]
+                simulator.data[p] = \
+                    probed_spikes[::sample_every, neuron_slice]
 
 
 class SystemRegion(collections.namedtuple(
@@ -532,7 +546,8 @@ class PESRegion(regions.Region):
 
 VojaLearningRule = collections.namedtuple(
     "VojaLearningRule",
-    "learning_rate, learning_signal_filter_index, encoder_offset, decoded_input_filter_index, activity_filter_index")
+    "learning_rate, learning_signal_filter_index, encoder_offset, "
+    "decoded_input_filter_index, activity_filter_index")
 
 
 class VojaRegion(regions.Region):
@@ -546,9 +561,6 @@ class VojaRegion(regions.Region):
         return 8 + (len(self.learning_rules) * 20)
 
     def write_subregion_to_file(self, fp, vertex_slice):
-        # Get length of slice for scaling learning rate
-        n_neurons = float(vertex_slice.stop - vertex_slice.start)
-
         # Write number of learning rules and scaling factor
         fp.write(struct.pack(
             "<2I",
@@ -567,6 +579,7 @@ class VojaRegion(regions.Region):
                 l.activity_filter_index
             )
             fp.write(data)
+
 
 def get_decoders_and_keys(model, signals_connections, minimise=False):
     """Get a combined decoder matrix and a list of keys to use to transmit
@@ -622,6 +635,7 @@ class SpikeRecordingRegion(regions.Region):
     def write_subregion_to_file(self, *args, **kwargs):  # pragma: no cover
         pass  # Nothing to do
 
+
 class EncoderRecordingRegion(regions.Region):
     """Region used to record spikes."""
     def __init__(self, n_steps, n_dimensions):
@@ -641,6 +655,7 @@ class EncoderRecordingRegion(regions.Region):
     def write_subregion_to_file(self, *args, **kwargs):  # pragma: no cover
         pass  # Nothing to do
 
+
 class FilteredActivityRegion(regions.Region):
     def __init__(self, dt):
         self.filter_propogators = []
@@ -648,7 +663,7 @@ class FilteredActivityRegion(regions.Region):
 
     def add_get_filter(self, time_constant):
         # If time constant is none or less than dt,
-        # a filter is not required so return -1It's amazing just how much rope that lack of memory protection gives one...
+        # a filter is not required so return -1
         if time_constant is None or time_constant < self.dt:
             return -1
         # Otherwise

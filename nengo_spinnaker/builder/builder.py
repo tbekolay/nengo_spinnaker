@@ -397,6 +397,7 @@ class InputPort(enum.Enum):
     standard = 0
     """Standard, value-based, input port."""
 
+
 class netlistspec(collections.namedtuple(
         "netlistspec", "vertices, load_function, before_simulation_function, "
                        "after_simulation_function")):
