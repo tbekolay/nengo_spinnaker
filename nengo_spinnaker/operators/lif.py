@@ -473,7 +473,7 @@ class SystemRegion(collections.namedtuple(
         """Get the number of bytes necessary to represent this region of
         memory.
         """
-        return 10 * 4  # 9 words
+        return 10 * 4  # 10 words
 
     sizeof_padded = sizeof
 
