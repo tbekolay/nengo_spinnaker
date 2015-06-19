@@ -1,2 +1,2 @@
-git+https://github.com/nengo/nengo@learning-unmodulate#egg=nengo
+git+https://github.com/nengo/nengo@voja2#egg=nengo
 git+https://github.com/project-rig/rig#egg=rig
