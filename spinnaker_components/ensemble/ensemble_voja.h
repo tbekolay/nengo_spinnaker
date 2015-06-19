@@ -50,7 +50,7 @@ typedef struct voja_parameters_t
 //----------------------------------
 extern uint32_t g_num_voja_learning_rules;
 extern voja_parameters_t *g_voja_learning_rules;
-extern value_t *g_voja_scale;
+extern value_t g_voja_one_over_radius;
 
 //----------------------------------
 // Inline functions
@@ -97,7 +97,7 @@ static inline void voja_neuron_spiked(uint n)
       value_t *encoder_vector = neuron_encoder_vector(n) + parameters->encoder_offset;
 
       // Calculate scaling factor for input
-      const value_t input_scale = learning_rate * g_voja_scale[n];
+      const value_t input_scale = learning_rate * g_ensemble.gain[n] * g_voja_one_over_radius;
 
       // Loop through input dimensions
       for(uint d = 0; d < decoded_input->d_in; d++)

@@ -9,7 +9,8 @@ void c_main(void)
   // Set the system up
   io_printf(IO_BUF, "[Ensemble] C_MAIN\n");
   address_t address = system_load_sram();
-  if (!data_system(region_start(1, address))) {
+  if (!data_system(region_start(1, address)))
+  {
     io_printf(IO_BUF, "[Ensemble] Failed to start.\n");
     return;
   }
@@ -20,16 +21,18 @@ void c_main(void)
   data_get_decoders(region_start(4, address), g_ensemble.n_neurons, g_n_output_dimensions);
   data_get_keys(region_start(5, address), g_n_output_dimensions);
 
-  // Get the inhibitory gains
-  g_ensemble.inhib_gain = spin1_malloc(g_ensemble.n_neurons * sizeof(value_t));
-  if (g_ensemble.inhib_gain == NULL) {
-    io_printf(IO_BUF, "[Ensemble] Failed to malloc inhib gains.\n");
+  // Get the gains
+  g_ensemble.gain = spin1_malloc(g_ensemble.n_neurons * sizeof(value_t));
+  if (g_ensemble.gain == NULL)
+  {
+    io_printf(IO_BUF, "[Ensemble] Failed to malloc gains.\n");
     return;
   }
-  spin1_memcpy(g_ensemble.inhib_gain, region_start(6, address),
+  spin1_memcpy(g_ensemble.gain, region_start(6, address),
                g_ensemble.n_neurons * sizeof(value_t));
-  for (uint n = 0; n < g_ensemble.n_neurons; n++) {
-    io_printf(IO_BUF, "Inhib gain[%d] = %k\n", n, g_ensemble.inhib_gain[n]);
+  for (uint n = 0; n < g_ensemble.n_neurons; n++)
+  {
+    io_printf(IO_BUF, "Gain[%d] = %k\n", n, g_ensemble.gain[n]);
   }
 
   // Load subcomponents

@@ -82,7 +82,7 @@ typedef struct ensemble_parameters
   neuron_status_t *status;                //!< Neuron status
 
   uint n_inhib_dims;                      //!< Number of dimensions in inhibitory connection
-  value_t *inhib_gain;                    //!< Gain of inhibitory connection (value of transform)
+  value_t *gain;                          //!< Per-neuron gain (value of transform)
 
   uint encoder_width;
   value_t *encoders;                      //!< Encoder values \f$N \times D_{in}\f$ (including gains)

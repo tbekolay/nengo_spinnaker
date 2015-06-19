@@ -50,7 +50,7 @@ void ensemble_update(uint ticks, uint arg1)
 
     // Include neuron bias
     current_t i_membrane = (g_ensemble.i_bias[n] +
-      inhibitory_input * g_ensemble.inhib_gain[n]);
+      inhibitory_input * g_ensemble.gain[n]);
 
     // Extract this neurons encoder vector
     const value_t *encoder_vector = neuron_encoder_vector(n);

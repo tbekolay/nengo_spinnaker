@@ -153,8 +153,9 @@ class EnsembleLIF(object):
                     "SpiNNaker does not support %s learning rule." % l_type
                 )
 
-        # Create, initially empty, Voja region
-        self.voja_region = VojaRegion(params.gain / self.ensemble.radius)
+        # Create, initially empty, Voja region, passing in scaling factor
+        # used, with gain, to scale activities to match encoders
+        self.voja_region = VojaRegion(1.0 / self.ensemble.radius)
 
         # Loop through incoming learnt connections
         for sig, conns in iteritems(incoming[EnsembleInputPort.learnt]):
@@ -537,22 +538,23 @@ VojaLearningRule = collections.namedtuple(
 class VojaRegion(regions.Region):
     """Region representing parameters for PES learning rules.
     """
-    def __init__(self, voja_scale):
+    def __init__(self, one_over_radius):
         self.learning_rules = []
-        self.voja_scale = voja_scale
+        self.one_over_radius = one_over_radius
 
     def sizeof(self, vertex_slice):
-        if len(self.learning_rules) == 0:
-            return 4
-        else:
-            return 4 + (len(self.learning_rules) * 20) + ((vertex_slice.stop - vertex_slice.start) * 4)
+        return 8 + (len(self.learning_rules) * 20)
 
     def write_subregion_to_file(self, fp, vertex_slice):
         # Get length of slice for scaling learning rate
         n_neurons = float(vertex_slice.stop - vertex_slice.start)
 
-        # Write number of learning rules
-        fp.write(struct.pack("<I", len(self.learning_rules)))
+        # Write number of learning rules and scaling factor
+        fp.write(struct.pack(
+            "<2I",
+            len(self.learning_rules),
+            tp.value_to_fix(self.one_over_radius)
+        ))
 
         # Write learning rules
         for l in self.learning_rules:
@@ -565,11 +567,6 @@ class VojaRegion(regions.Region):
                 l.activity_filter_index
             )
             fp.write(data)
-
-        # If there are any learning rules, write voja scale
-        if len(self.learning_rules) > 0:
-            fp.write(tp.np_to_fix(self.voja_scale[vertex_slice]).tostring())
-
 
 def get_decoders_and_keys(model, signals_connections, minimise=False):
     """Get a combined decoder matrix and a list of keys to use to transmit

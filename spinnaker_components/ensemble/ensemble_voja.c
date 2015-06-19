@@ -22,17 +22,19 @@
 //-----------------------------------------------------------------------------
 uint32_t g_num_voja_learning_rules = 0;
 voja_parameters_t *g_voja_learning_rules = NULL;
-value_t *g_voja_scale = NULL;
+value_t g_voja_one_over_radius = 1.0k;
 
 //-----------------------------------------------------------------------------
 // Global functions
 //-----------------------------------------------------------------------------
 bool get_voja(address_t address)
 {
-  // Read number of Voja learning rules that are configured
+  // Read number of Voja learning rules that are configured and the scaling factor
   g_num_voja_learning_rules = address[0];
-  
-  io_printf(IO_BUF, "Voja learning: Num rules:%u\n", g_num_voja_learning_rules);
+  g_voja_one_over_radius = kbits(address[1]);
+
+  io_printf(IO_BUF, "Voja learning: Num rules:%u, One over radius:%k\n",
+            g_num_voja_learning_rules, g_voja_one_over_radius);
   
   if(g_num_voja_learning_rules > 0)
   {
@@ -41,7 +43,7 @@ bool get_voja(address_t address)
                       g_num_voja_learning_rules * sizeof(voja_parameters_t));
     
     // Copy learning rules from region into new array
-    memcpy(g_voja_learning_rules, &address[1], g_num_voja_learning_rules * sizeof(voja_parameters_t));
+    memcpy(g_voja_learning_rules, &address[2], g_num_voja_learning_rules * sizeof(voja_parameters_t));
     
     // Display debug
     for(uint32_t l = 0; l < g_num_voja_learning_rules; l++)
@@ -50,14 +52,6 @@ bool get_voja(address_t address)
       io_printf(IO_BUF, "\tRule %u, Learning rate:%k, Learning signal filter index:%d, Encoder output offset:%u, Decoded input filter index:%u, Activity filter index:%d\n",
                 l, parameters->learning_rate, parameters->learning_signal_filter_index, parameters->encoder_offset, parameters->decoded_input_filter_index, parameters->activity_filter_index);
     }
-
-    // Allocate Voja scale array
-    MALLOC_FAIL_FALSE(g_voja_scale,
-                      g_ensemble.n_neurons * sizeof(value_t));
-
-    // Copy Voja scale in
-    memcpy(g_voja_scale, &address[1 + (g_num_voja_learning_rules * 5)],
-           g_ensemble.n_neurons * sizeof(value_t));
   }
   return true;
 }
@@ -89,7 +83,7 @@ void voja_step()
 
         // Calculate scaling factors for the two terms
         const value_t encoder_scale = learning_rate * filtered_activity[n];
-        const value_t input_scale = encoder_scale * g_voja_scale[n];
+        const value_t input_scale = encoder_scale * g_ensemble.gain[n] * g_voja_one_over_radius;
 
         // Loop through input dimensions
         for(uint d = 0; d < decoded_input->d_in; d++)
