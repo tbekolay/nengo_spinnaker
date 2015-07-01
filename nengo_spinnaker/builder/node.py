@@ -131,10 +131,11 @@ class NodeIOController(object):
 
         # Create a new connection from the Node to the Probe and then get the
         # model to build this.
-        seed = model.seeds[probe]
-        conn = nengo.Connection(probe.target, probe, synapse=probe.synapse,
-                                seed=seed, add_to_container=False)
-        model.make_connection(conn)
+        if probe.target.output is not None:
+            seed = model.seeds[probe]
+            conn = nengo.Connection(probe.target, probe, synapse=probe.synapse,
+                                    seed=seed, add_to_container=False)
+            model.make_connection(conn)
 
     def get_node_source(self, model, cn):
         """Get the source for a connection originating from a Node."""

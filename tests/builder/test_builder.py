@@ -82,26 +82,13 @@ class TestBuild(object):
         """Test that the builder and extra_builders dictionaries are combined
         and that a mrolookupdict is used.
         """
-        class A(object):
-            seed = 101
+        builders = {nengo.Ensemble: mock.Mock()}
+        extra_builders = {nengo.Node: mock.Mock()}
 
-        class B(object):
-            pass
-
-        builders = {A: mock.Mock()}
-        extra_builders = {B: mock.Mock()}
-
-        a = A()
-        b = B()
-
-        network = mock.Mock()
-        network.seed = None
-        network.connections = []
-        network.ensembles = [a]
-        network.nodes = [b]
-        network.networks = []
-        network.probes = []
-        network.config = mock.Mock(name="config")
+        with nengo.Network() as network:
+            a = nengo.Ensemble(100, 1)
+            a.seed = 101
+            b = nengo.Node(lambda t: t)
 
         if not use_make_object:
             # Patch the default builders
@@ -131,67 +118,8 @@ class TestBuild(object):
         assert model.seeds[b] is not None
 
         # Assert the builders got called
-        builders[A].assert_called_once_with(model, a)
-        extra_builders[B].assert_called_once_with(model, b)
-
-    def test_builds_hierarchy(self):
-        """Test that networks are built hierarchically.
-        """
-        class A(object):
-            seed = 101
-
-        class B(object):
-            pass
-
-        builders = {A: mock.Mock()}
-        extra_builders = {B: mock.Mock()}
-
-        a = A()
-        b = B()
-
-        network_a = mock.Mock()
-        network_a.seed = None
-        network_a.connections = []
-        network_a.ensembles = [a]
-        network_a.nodes = []
-        network_a.networks = []
-        network_a.probes = []
-        network_a.config = mock.Mock(name="config")
-
-        network_b = mock.Mock()
-        network_b.seed = None
-        network_b.connections = []
-        network_b.ensembles = []
-        network_b.nodes = [b]
-        network_b.networks = []
-        network_b.probes = []
-        network_b.config = mock.Mock(name="config")
-
-        network = mock.Mock()
-        network.seed = None
-        network.connections = []
-        network.ensembles = []
-        network.nodes = []
-        network.networks = [network_a, network_b]
-        network.probes = []
-        network.config = mock.Mock(name="config")
-
-        # Patch the default builders
-        with patch.object(Model, "builders", new=builders):
-            # Create a model and build the mock network
-            model = Model()
-            model.build(network, extra_builders=extra_builders)
-
-        # Assert that the config was stored in the model
-        assert model.config is network.config
-
-        # Assert that seeds were supplied
-        assert model.seeds[a] == a.seed
-        assert model.seeds[b] is not None
-
-        # Assert the builders got called
-        builders[A].assert_called_once_with(model, a)
-        extra_builders[B].assert_called_once_with(model, b)
+        builders[nengo.Ensemble].assert_called_once_with(model, a)
+        extra_builders[nengo.Node].assert_called_once_with(model, b)
 
 
 class TestMakeConnection(object):
@@ -202,20 +130,18 @@ class TestMakeConnection(object):
         # TODO Test that the connection is fully built
         model = Model()
 
-        class A(object):
+        class A(nengo.Node):
             pass
 
-        class B(object):
+        class B(nengo.Node):
             pass
 
-        a = A()
-        b = B()
+        a = A(lambda t: t, add_to_container=False)
+        b = B(lambda t, x: None, size_in=1, add_to_container=False)
 
         # Create a connection from a to b
-        connection = mock.Mock()
-        connection.seed = seed
-        connection.pre_obj = a
-        connection.post_obj = b
+        with nengo.Network() as network:
+            connection = nengo.Connection(a, b, seed=seed)
 
         # Create getter methods
         source = ObjectPort(mock.Mock(), None)
@@ -248,15 +174,6 @@ class TestMakeConnection(object):
 
         connection_builder_a = mock.Mock(wraps=connection_builder_fn)
         connection_builder_b = mock.Mock(wraps=connection_builder_fn)
-
-        # Create a mock network
-        network = mock.Mock()
-        network.seed = None
-        network.connections = [connection]
-        network.ensembles = []
-        network.nodes = []
-        network.networks = []
-        network.probes = []
 
         if use_registered_dicts:
             # Patch the getters, add a null builder
@@ -308,28 +225,18 @@ class TestMakeConnection(object):
         """Test that building connections adds a new signal to the model."""
         model = Model()
 
-        class A(object):
-            pass
-
-        # Create a connection from a to b
-        connection = mock.Mock()
-        connection.pre_obj = A()
-        connection.post_obj = A()
-
-        # Create a mock network
-        network = mock.Mock()
-        network.seed = None
-        network.connections = [connection]
-        network.ensembles = []
-        network.nodes = []
-        network.networks = []
-        network.probes = []
+        a = nengo.Node(lambda t: t, add_to_container=False)
+        b = nengo.Node(lambda t, x: None, size_in=1, add_to_container=False)
+        with nengo.Network() as network:
+            connection = nengo.Connection(a, b)
 
         # Patch the getters, add a null builder
-        with patch.object(model, "source_getters", {A: source_getter}), \
-                patch.object(model, "sink_getters", {A: sink_getter}), \
+        with patch.object(model, "source_getters",
+                          {nengo.Node: source_getter}), \
+                patch.object(model, "sink_getters",
+                             {nengo.Node: sink_getter}), \
                 patch.object(model, "connection_parameter_builders",
-                             {A: mock.Mock()}):
+                             {nengo.Node: mock.Mock()}):
             # Build the network
             model.build(network)
 

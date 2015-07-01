@@ -10,7 +10,9 @@ from six import iteritems, itervalues
 
 from nengo_spinnaker.netlist import Net, Netlist
 from nengo_spinnaker.utils import collections as collections_ext
+from nengo_spinnaker.utils import passthrough_nodes as ptn_utils
 from nengo_spinnaker.utils.keyspaces import KeyspaceContainer
+from nengo_spinnaker.utils.probes import probe_target
 
 BuiltConnection = collections.namedtuple(
     "BuiltConnection", "decoders, eval_points, transform, solver_info"
@@ -208,32 +210,45 @@ class Model(object):
         self._probe_builders.update(self.probe_builders)
         self._probe_builders.update(extra_probe_builders)
 
-        # Build
-        self._build_network(network)
+        # Add connections from passthrough Nodes to all probes which target
+        # them.
+        ptn_utils.add_passthrough_node_to_probe_connections(network)
 
-    def _build_network(self, network):
-        # Get the seed for the network
+        # Remove all of the passthrough Nodes, store a list of which
+        # connections should use the parameters of other connections.
+        network, self._prebuilt_connections = \
+            ptn_utils.remove_passthrough_nodes(network)
+
+        # Build all of the objects
         self.seeds[network] = get_seed(network, np.random)
-
-        # Build all subnets
-        for subnet in network.networks:
-            self._build_network(subnet)
-
-        # Get the random number generator for the network
         self.rngs[network] = np.random.RandomState(self.seeds[network])
         self.rng = self.rngs[network]
 
         # Build all objects
-        for obj in itertools.chain(network.ensembles, network.nodes):
+        for obj in itertools.chain(network.all_ensembles, network.all_nodes):
             self.make_object(obj)
 
-        # Build all the connections
-        for connection in network.connections:
-            self.make_connection(connection)
+        # Build all "pre-built" connections
+        for conn in set(itervalues(self._prebuilt_connections)):
+            self._build_connection_params(conn)
 
-        # Build all the probes
-        for probe in network.probes:
-            self.make_probe(probe)
+        # Build all passthrough Node probes
+        for probe in network.all_probes:
+            target_obj = probe_target(probe)
+            if (isinstance(target_obj, nengo.Node) and
+                    target_obj.output is None):
+                self.make_probe(probe)
+
+        # Build all connections
+        for conn in network.all_connections:
+            self.make_connection(conn)
+
+        # Build all remaining probes
+        for probe in network.all_probes:
+            target_obj = probe_target(probe)
+            if not (isinstance(target_obj, nengo.Node) and
+                    target_obj.output is None):
+                self.make_probe(probe)
 
     def make_object(self, obj):
         """Call an appropriate build function for the given object.
@@ -247,10 +262,31 @@ class Model(object):
         This method will build a connection and construct a new signal which
         will be included in the model.
         """
-        self.seeds[conn] = get_seed(conn, self.rng)
-        self.params[conn] = \
-            self._connection_parameter_builders[type(conn.pre_obj)](self, conn)
+        self._build_connection_params(conn)
+        self._add_signal_for_connection(conn)
 
+    def _build_connection_params(self, conn):
+        """Build the parameters for a connection."""
+        if conn in self._prebuilt_connections:
+            # If the connection is in the set of connections for which we use a
+            # pre-built connection as the source of the parameters we copy the
+            # parameters over and replace the transform.
+            self.seeds[conn] = self.seeds[self._prebuilt_connections[conn]]
+            self.params[conn] = BuiltConnection(
+                self.params[self._prebuilt_connections[conn]].decoders,
+                self.params[self._prebuilt_connections[conn]].eval_points,
+                conn.transform,
+                self.params[self._prebuilt_connections[conn]].solver_info
+            )
+        else:
+            # Otherwise we build the connection from scratch.
+            self.seeds[conn] = get_seed(conn, self.rng)
+            self.params[conn] = \
+                self._connection_parameter_builders[type(conn.pre_obj)](self,
+                                                                        conn)
+
+    def _add_signal_for_connection(self, conn):
+        """Add a signal to simulate the connection to the model."""
         # Get the source and sink specification, then make the signal provided
         # that neither of specs is None.
         source = self._source_getters[type(conn.pre_obj)](self, conn)
@@ -265,13 +301,8 @@ class Model(object):
         """Call an appropriate build function for the given probe."""
         self.seeds[probe] = get_seed(probe, self.rng)
 
-        # Get the target type
-        target_obj = probe.target
-        if isinstance(target_obj, nengo.base.ObjView):
-            target_obj = target_obj.obj
-
         # Build
-        self._probe_builders[type(target_obj)](self, probe)
+        self._probe_builders[type(probe_target(probe))](self, probe)
 
     def get_signals_connections_from_object(self, obj):
         """Get a dictionary mapping ports to signals to connections which
