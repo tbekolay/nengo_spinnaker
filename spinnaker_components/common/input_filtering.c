@@ -128,11 +128,11 @@ void input_filtering_get_filters(
     filters->filters[f].size = params->size;
 
     // Initialise the input accumulator
-    MALLOC_OR_DIE(filters->filters[f].input, sizeof(struct _if_filter));
+    MALLOC_OR_DIE(filters->filters[f].input, sizeof(struct _if_input));
     MALLOC_OR_DIE(filters->filters[f].input->value,
                   sizeof(value_t)*params->size);
     filters->filters[f].input->mask = (params->flags & (1 << LATCHING)) ?
-                                      0xffffffff : 0x00000000;
+                                      0x00000000 : 0xffffffff;
 
     // Initialise the output vector
     MALLOC_OR_DIE(filters->filters[f].output,
