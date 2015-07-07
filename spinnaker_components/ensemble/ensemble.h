@@ -53,6 +53,7 @@ typedef struct region_system
   uint32_t record_spikes;
   uint32_t record_learnt_encoders;
   uint32_t n_inhibitory_dimensions;
+  uint32_t num_profiler_samples;
 } region_system_t;
 
 /** \brief Shared ensemble parameters.

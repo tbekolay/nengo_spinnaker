@@ -13,6 +13,7 @@
  */
 
 #include "ensemble_filtered_activity.h"
+#include "ensemble_profiler.h"
 
 #include <string.h>
 
@@ -66,6 +67,8 @@ bool get_filtered_activity(address_t address)
 //-----------------------------------------------------------------------------
 void filtered_activity_step()
 {
+  profiler_write_entry(PROFILER_ENTER | PROFILER_TIMER_OUTPUT_FILTER);
+
   // Loop through filters
   for(uint f = 0; f < g_num_activity_filters; f++)
   {
@@ -75,4 +78,6 @@ void filtered_activity_step()
       g_filtered_activities[f][n] *= g_activity_filter_params[f].filter;
     }
   }
+
+   profiler_write_entry(PROFILER_EXIT | PROFILER_TIMER_OUTPUT_FILTER);
 }

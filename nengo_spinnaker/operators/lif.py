@@ -303,7 +303,8 @@ class EnsembleLIF(object):
                          self.ensemble.neuron_type.tau_rc,
                          model.dt,
                          self.probe_spikes,
-                         self.probe_encoders
+                         self.probe_encoders,
+                         0
                          ),
             self.bias_region,
             self.encoders_region,
@@ -480,14 +481,14 @@ class EnsembleLIF(object):
 class SystemRegion(collections.namedtuple(
     "SystemRegion", "n_input_dimensions, encoder_width, n_output_dimensions, "
                     "machine_timestep, t_ref, t_rc, dt, "
-                    "probe_spikes, probe_encoders")):
+                    "probe_spikes, probe_encoders, num_profiler_samples")):
     """Region of memory describing the general parameters of a LIF ensemble."""
 
     def sizeof(self, vertex_slice=slice(None)):
         """Get the number of bytes necessary to represent this region of
         memory.
         """
-        return 10 * 4  # 10 words
+        return 11 * 4  # 10 words
 
     sizeof_padded = sizeof
 
@@ -507,7 +508,7 @@ class SystemRegion(collections.namedtuple(
 
         n_neurons = vertex_slice.stop - vertex_slice.start
         data = struct.pack(
-            "<10I",
+            "<11I",
             self.n_input_dimensions,
             self.encoder_width,
             self.n_output_dimensions,
@@ -517,7 +518,8 @@ class SystemRegion(collections.namedtuple(
             tp.value_to_fix(-np.expm1(-self.dt / self.t_rc) * (1.0 - 2**-11)),
             (0x1 if self.probe_spikes else 0x0),
             (0x1 if self.probe_encoders else 0x0),
-            1
+            1,
+            self.num_profiler_samples
         )
         fp.write(data)
 

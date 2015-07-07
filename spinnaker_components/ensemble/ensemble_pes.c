@@ -14,6 +14,7 @@
 
 #include "ensemble_pes.h"
 #include "ensemble_filtered_activity.h"
+#include "ensemble_profiler.h"
 
 #include <string.h>
 
@@ -55,6 +56,8 @@ bool get_pes(address_t address)
 //----------------------------------
 void pes_step()
 {
+  profiler_write_entry(PROFILER_ENTER | PROFILER_FILTERED_PES);
+
   // Loop through all the learning rules
   for(uint32_t l = 0; l < g_num_pes_learning_rules; l++)
   {
@@ -85,4 +88,6 @@ void pes_step()
       }
     }
   }
+
+  profiler_write_entry(PROFILER_EXIT | PROFILER_FILTERED_PES);
 }

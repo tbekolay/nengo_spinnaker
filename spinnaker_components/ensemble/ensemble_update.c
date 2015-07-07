@@ -14,21 +14,27 @@
 #include "ensemble_filtered_activity.h"
 #include "ensemble_output.h"
 #include "ensemble_pes.h"
+#include "ensemble_profiler.h"
 #include "ensemble_voja.h"
 
 void ensemble_update(uint ticks, uint arg1)
 {
   use(arg1);
+  profiler_write_entry(PROFILER_ENTER | PROFILER_TIMER);
+
   if (simulation_ticks != UINT32_MAX && ticks >= simulation_ticks)
   {
+    profiler_finalise();
     spin1_exit(0);
   }
 
   // Filter inputs, updating accumulator for excitatory and inhibitory inputs
+  profiler_write_entry(PROFILER_ENTER | PROFILER_TIMER_INPUT_FILTER);
   input_filter_step(&g_input, true);
   input_filter_step(&g_input_inhibitory, true);
   input_filter_step(&g_input_modulatory, false);
   input_filter_step(&g_input_learnt_encoder, false);
+  profiler_write_entry(PROFILER_EXIT | PROFILER_TIMER_INPUT_FILTER);
 
   // Filter activity
   filtered_activity_step();
@@ -39,6 +45,8 @@ void ensemble_update(uint ticks, uint arg1)
   {
     inhibitory_input += g_input_inhibitory.input[d];
   }
+
+  profiler_write_entry(PROFILER_ENTER | PROFILER_TIMER_INPUT_FILTER);
 
   // Perform neuron updates
   for( uint n = 0; n < g_ensemble.n_neurons; n++ )
@@ -142,9 +150,13 @@ void ensemble_update(uint ticks, uint arg1)
     }
   }
 
+  profiler_write_entry(PROFILER_EXIT | PROFILER_TIMER_NEURON);
+
   // Update filtered learning rules
   pes_step();
   voja_step();
+
+  profiler_write_entry(PROFILER_ENTER | PROFILER_TIMER_OUTPUT);
 
   // Transmit decoded Ensemble representation
   for (uint output_index = 0; output_index < g_n_output_dimensions;
@@ -159,6 +171,10 @@ void ensemble_update(uint ticks, uint arg1)
     gp_output_values[output_index] = 0;
   }
 
+  profiler_write_entry(PROFILER_EXIT | PROFILER_TIMER_OUTPUT);
+
   // Flush the spike recording buffer
   record_spike_buffer_flush(&g_ensemble.record_spikes);
+
+  profiler_write_entry(PROFILER_EXIT | PROFILER_TIMER);
 }

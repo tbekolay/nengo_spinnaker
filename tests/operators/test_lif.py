@@ -27,8 +27,8 @@ class TestEnsembleLIF(object):
 class TestSystemRegion(object):
     """Test system regions for Ensembles."""
     def test_sizeof(self):
-        region = lif.SystemRegion(1, 2, 5, 1000, 0.01, 0.02, 0.001, False, True)
-        assert region.sizeof() == 10 * 4  # 10 words
+        region = lif.SystemRegion(1, 2, 5, 1000, 0.01, 0.02, 0.001, False, True, 0)
+        assert region.sizeof() == 11 * 4  # 11 words
         assert region.sizeof_padded(slice(None)) == region.sizeof(slice(None))
 
     @pytest.mark.parametrize(
@@ -51,7 +51,7 @@ class TestSystemRegion(object):
         # Check that the region is correctly written to file
         region = lif.SystemRegion(
             size_in, encoder_width, size_out, machine_timestep,
-            tau_ref, tau_rc, dt, probe_spikes, probe_encoders
+            tau_ref, tau_rc, dt, probe_spikes, probe_encoders, 0
         )
 
         # Create the file
@@ -65,8 +65,8 @@ class TestSystemRegion(object):
         values = fp.read()
         assert len(values) == region.sizeof()
 
-        (n_in, n_encoder, n_out, n_n, m_t, t_ref, dt_over_t_rc, rec_spikes, rec_encoders, i_dims) = \
-            struct.unpack_from("<10I", values)
+        (n_in, n_encoder, n_out, n_n, m_t, t_ref, dt_over_t_rc, rec_spikes, rec_encoders, i_dims, num_profiler_samples) = \
+            struct.unpack_from("<11I", values)
         assert n_in == size_in
         assert n_encoder == encoder_width
         assert n_out == size_out
@@ -80,6 +80,7 @@ class TestSystemRegion(object):
         assert ((probe_encoders and rec_encoders != 0) or
                 (not probe_encoders and rec_encoders == 0))
         assert i_dims == 1
+        assert num_profiler_samples == 0
 
 
 class TestPESRegion(object):

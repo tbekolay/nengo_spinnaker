@@ -14,6 +14,7 @@
 
 #include "ensemble_voja.h"
 #include "ensemble_filtered_activity.h"
+#include "ensemble_profiler.h"
 
 #include <string.h>
 
@@ -58,6 +59,8 @@ bool get_voja(address_t address)
 //-----------------------------------------------------------------------------
 void voja_step()
 {
+  profiler_write_entry(PROFILER_ENTER | PROFILER_FILTERED_VOJA);
+
   // Loop through all the learning rules
   for(uint32_t l = 0; l < g_num_voja_learning_rules; l++)
   {
@@ -93,4 +96,6 @@ void voja_step()
       }
     }
   }
+
+  profiler_write_entry(PROFILER_EXIT | PROFILER_FILTERED_VOJA);
 }
