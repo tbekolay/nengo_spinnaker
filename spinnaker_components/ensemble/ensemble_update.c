@@ -16,8 +16,6 @@
 #include "ensemble_pes.h"
 #include "ensemble_voja.h"
 
-static uint32_t lfsr = 1;                   //!< LFSR for spike perturbation
-
 void ensemble_update(uint ticks, uint arg1)
 {
   use(arg1);
@@ -97,50 +95,40 @@ void ensemble_update(uint ticks, uint arg1)
       i_membrane += encoder_vector[d] * g_ensemble.input[d];
     }
 
-
-    voltage_t v_voltage = neuron_voltage(n);
-    voltage_t v_delta = ( i_membrane - v_voltage ) * g_ensemble.dt_over_t_rc;
-    /* io_printf( IO_STD, "n = %d, J = %k, V = %k, dV = %k\n",
-                  n, i_membrane, v_voltage, v_delta );
-    */
-
-    v_voltage += v_delta;
+    value_t v_voltage = neuron_voltage(n);
+    value_t v_delta = (i_membrane - v_voltage) * g_ensemble.exp_dt_over_t_rc;
 
     // Voltages can't go below 0.0
-    if( v_voltage < 0.0k )
+    v_voltage += v_delta;
+    if(v_voltage < 0.0k)
     {
       v_voltage = 0.0k;
     }
 
     // Save state
-    set_neuron_voltage( n, v_voltage );
+    set_neuron_voltage(n, v_voltage);
 
     // If this neuron has fired then process
     if( v_voltage > 1.0k )
     {
-      //io_printf( IO_STD, "[Ensemble] Neuron %d spiked.", n );
+      // Set the voltage to be the overshoot, set the refractory time
+      set_neuron_refractory(n);
+      set_neuron_voltage(n, v_voltage - 1.0k);
 
-      // Zero the voltage, set the refractory time
-      set_neuron_refractory( n );
-      set_neuron_voltage(n, 0.0k);
-
-      /* Randomly perturb the refractory period to account for inter-tick
-         spiking.*/
-      if(kbits(lfsr & 0x00007fff) * v_delta < v_voltage - 1.0k)
+      // Decrement the refractory time in the case that the overshoot was
+      // sufficiently significant.
+      if(v_voltage > 2.0k)
       {
-        decrement_neuron_refractory( n );
+        decrement_neuron_refractory(n);
+        set_neuron_voltage(n, v_voltage - 1.0k - v_delta);
       }
-      lfsr = (lfsr >> 1) ^ ((-(lfsr & 0x1)) & 0xB400);
 
       // Update the output values
       const value_t *decoder_vector = neuron_decoder_vector(n);
       for( uint d = 0; d < g_n_output_dimensions; d++ )
       {
-        /* io_printf( IO_STD, "[%d] = %.3k (0x%08x)",
-          d, neuron_decoder(n,d), neuron_decoder(n,d) ); */
         g_ensemble.output[d] += decoder_vector[d];
       }
-      //io_printf( IO_STD, "\n" );
 
       // Record that the spike occurred
       record_spike(&g_ensemble.record_spikes, n);

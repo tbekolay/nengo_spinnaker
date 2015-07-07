@@ -26,11 +26,12 @@ class TestNodeIOController(object):
 
     def test_prepare(self):
         """Preparing the default NodeIOController does nothing."""
+        model = mock.Mock()
         controller = mock.Mock(spec_set=[])
         netlist = mock.Mock(spec_set=[])
 
         nioc = NodeIOController()
-        nioc.prepare(controller, netlist)
+        nioc.prepare(model, controller, netlist)
 
     def test_close(self):
         """Closing the default NodeIOController does nothing."""
@@ -113,7 +114,7 @@ class TestNodeIOController(object):
 
         # Assert that this added a new operator to the model
         assert model.object_operators[a].function is a.output
-        assert model.object_operators[a].period is None
+        assert model.object_operators[a].period is model.dt
 
         assert model.extra_operators == list()
 
