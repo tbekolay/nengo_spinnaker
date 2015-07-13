@@ -79,7 +79,7 @@ struct _if_filter
   FilterStep step;  // Filter evaluation function
 };
 
-typedef void (*FilterInit)(void *, struct _if_filter*);
+typedef void (*FilterInit)(void *, struct _if_filter*, uint32_t size);
 
 /* Apply new or additional input to a filter. */
 static inline void _if_filter_input(struct _if_filter *filter,

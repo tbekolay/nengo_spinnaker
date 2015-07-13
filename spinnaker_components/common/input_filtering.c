@@ -14,9 +14,10 @@ void _none_filter_step(uint32_t n_dims, value_t *input,
     output[d] = input[d];
 }
 
-void _none_filter_init(void *params, struct _if_filter *filter)
+void _none_filter_init(void *params, struct _if_filter *filter, uint32_t size)
 {
   use(params);
+  use(size);
 
   debug(">> None filter\n");
 
@@ -46,8 +47,11 @@ void _lowpass_filter_step(uint32_t n_dims, value_t *input,
   }
 }
 
-void _lowpass_filter_init(void *params, struct _if_filter *filter)
+void _lowpass_filter_init(void *params, struct _if_filter *filter,
+                          uint32_t size)
 {
+  use(size);
+
   // Copy the filter parameters into memory
   MALLOC_OR_DIE(filter->state, sizeof(struct _lowpass_state));
   spin1_memcpy(filter->state, params, sizeof(struct _lowpass_state));
@@ -60,10 +64,127 @@ void _lowpass_filter_init(void *params, struct _if_filter *filter)
   filter->step = _lowpass_filter_step;
 }
 
+/* General purpose LTI implementation ****************************************/
+/* A Direct Form I implementation for linear digital filters.  This
+ * implementation cause unnecessary numbers of pipeline flushes, so fixed order
+ * filters can be implemented to reduce the cost of branch prediction failures.
+ */
+struct _lti_state
+{
+  uint32_t order;  // Order of the filter
+  value_t *a;   // Coefficients from the numerator
+  value_t *b;   // Coefficients from the denominator
+
+  // Previous values of the input (`xz`) and output (`yz`).  These are both 2D
+  // arrays, to access the kth last value of dimension d of x use:
+  //
+  //     xz[d*order + (n - k) % order]
+  //
+  value_t *xz;
+  value_t *yz;
+
+  // We treat the previous values as two circular buffers. After a simulation
+  // step `n` should be incremented (mod order) to rotate the ring.
+  int32_t n;
+};
+
+void _lti_filter_step(uint32_t n_dims, value_t *input,
+                      value_t *output, void *s)
+{
+  // Cast the state
+  struct _lti_state *state = (struct _lti_state *) s;
+
+  // Reference to previous values of x and y;
+  value_t *x, *y;
+
+  // Apply the filter to every dimension (realised as a Direct Form I digital
+  // filter).
+  for (uint32_t d = 0; d < n_dims; d++)
+  {
+    // Point to the correct previous x and y values.
+    x = &state->xz[d * state->order];
+    y = &state->yz[d * state->order];
+
+    // Create the new output value for this dimension
+    output[d] = 0.0k;
+
+    // Direct Form I filter
+    for (int32_t k=0; k < (int32_t) state->order; k++)
+    {
+      output[d] -= state->a[k] * y[(state->n - k - 1) % state->order];
+      output[d] += state->b[k] * x[(state->n - k - 1) % state->order];
+    }
+
+    // Include the initial new input
+    x[state->n] = input[d];
+
+    // Save the current output for later steps
+    y[state->n] = output[d];
+  }
+
+  // Rotate the ring buffer.
+  state->n = (state->n + 1) % state->order;
+}
+
+struct _lti_filter_init_params
+{
+  uint32_t order;
+  value_t data;  // Array of parameters 2*order longer (a[...] || b[...])
+};
+
+void _lti_filter_init(void *p, struct _if_filter *filter, uint32_t size)
+{
+  // Cast the parameters block
+  struct _lti_filter_init_params *params = \
+    (struct _lti_filter_init_params *) p;
+
+  // Malloc space for the parameters
+  MALLOC_OR_DIE(filter->state, sizeof(struct _lti_state));
+
+  struct _lti_state *state = (struct _lti_state *) filter->state;
+  state->order = params->order;
+
+  debug(">> LTI Filter of order %d", state->order);
+
+  MALLOC_OR_DIE(state->a, sizeof(value_t) * state->order);
+  MALLOC_OR_DIE(state->b, sizeof(value_t) * state->order);
+
+  // Malloc space for the state
+  MALLOC_OR_DIE(state->xz, sizeof(value_t) * state->order * size);
+  MALLOC_OR_DIE(state->yz, sizeof(value_t) * state->order * size);
+
+  // Copy the parameters across
+  value_t *data = &params->data;
+  spin1_memcpy(state->a, data, sizeof(value_t) * state->order);
+  spin1_memcpy(state->b, data + state->order, sizeof(value_t) * state->order);
+
+  // If debugging then print out all filter parameters
+#ifdef DEBUG
+  for (uint32_t k = 0; k < state->order; k++)
+    io_printf(IO_BUF, "  a[%d] = %k\n", k, state->a[k]);
+
+  for (uint32_t k = 0; k < state->order; k++)
+    io_printf(IO_BUF, "  b[%d] = %k\n", k, state->b[k]);
+#endif
+
+  // Zero all the state holding variables
+  state->n = 0;
+  for (uint32_t n = 0; n < size * state->order; n++)
+  {
+    state->xz[n] = state->yz[n] = 0.0k;
+  }
+
+  // Store a reference to the correct step function for the filter.  Insert any
+  // specially optimised filters here.
+  filter->step = _lti_filter_step;
+}
+
+/*****************************************************************************/
 // Map of filter indices to filter initialisation methods
 FilterInit filter_types[] = {
   _none_filter_init,
-  _lowpass_filter_init
+  _lowpass_filter_init,
+  _lti_filter_init,
 };
 
 /*Initialisation methods *****************************************************/
@@ -169,7 +290,8 @@ void input_filtering_get_filters(
 
     // Initialise the filter itself
     filter_types[params->init_method]((void *) &params->data,
-                                      &filters->filters[f]);
+                                      &filters->filters[f],
+                                      params->size);
 
     // Progress to the next filter, 4 is the number of actual elements in a
     // `struct _filter_parameters` (because `->data` is word 0 of the specific
