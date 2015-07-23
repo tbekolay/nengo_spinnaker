@@ -310,7 +310,7 @@ class EnsembleLIF(object):
         if getconfig(model.config, self.ensemble, "profile", False):
             # Try and get number of samples from config
             num_profiler_samples = getconfig(model.config, self.ensemble,
-                                                  "profile_num_samples")
+                                             "profile_num_samples")
 
             # If it's not specified, calculate sensible default
             if num_profiler_samples is None:
@@ -377,12 +377,14 @@ class EnsembleLIF(object):
         constraints = {
             sdram_constraint: lambda s: regions.utils.sizeof_regions(
                 self.regions, s),
+            # **HACK** no recording, +5 bytes per neuron
             dtcm_constraint: lambda s: regions.utils.sizeof_regions(
-                self.regions[:-2], s) + 5*(s.stop - s.start),  # **HACK** no recording, +5 bytes per neuron
+                self.regions[:-2], s) + 5*(s.stop - s.start),
             cpu_constraint: cpu_usage,
         }
 
-        app_name = "ensemble_profiled" if num_profiler_samples > 0 else "ensemble"
+        app_name = ("ensemble_profiled" if num_profiler_samples > 0
+                    else "ensemble")
         for sl in partition.partition(slice(0, self.ensemble.n_neurons),
                                       constraints):
             resources = {
@@ -522,6 +524,7 @@ class EnsembleLIF(object):
                 simulator.profiler_data[self.ensemble] =\
                     self.profiler_region.read_from_mem(
                         mem, EnsembleLIF.profiler_tag_names)
+
 
 class SystemRegion(collections.namedtuple(
     "SystemRegion", "n_input_dimensions, encoder_width, n_output_dimensions, "
@@ -755,4 +758,3 @@ class FilteredActivityRegion(regions.Region):
                 tp.value_to_fix(1.0) - f,
             )
             fp.write(data)
-
