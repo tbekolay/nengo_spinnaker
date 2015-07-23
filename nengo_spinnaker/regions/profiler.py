@@ -8,6 +8,7 @@ MS_SCALE = (1.0 / 200032.4)
 
 logger = logging.getLogger(__name__)
 
+
 class Profiler(Region):
     """Region used to record spikes."""
     def __init__(self, n_samples):
