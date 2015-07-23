@@ -80,7 +80,8 @@ class Profiler(Region):
                     tag_entry_times_ms =\
                         tag_entry_times_ms[:num_exit_times - num_entry_times]
 
-                # Subtract entry times from exit times to get durations of each call
+                # Subtract entry times from exit times
+                # to get durations of each call
                 tag_durations_ms = np.subtract(
                     tag_exit_times_ms, tag_entry_times_ms)
 
