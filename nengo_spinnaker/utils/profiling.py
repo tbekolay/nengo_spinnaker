@@ -32,10 +32,12 @@ def print_summary(profiling_data, duration):
         print("\tMean time per timestep:%fms" %
               (np.average(total_sample_duration_per_timestep)))
 
+
 def write_csv_header(profiling_data, csv_writer, extra_column_headers):
     # Write header row with extra column headers
     # followed by tag names found in profiling_data
     csv_writer.writerow(extra_column_headers + list(profiling_data.iterkeys()))
+
 
 def write_csv_row(profiling_data, csv_writer, extra_column_values):
     # Calculate mean of all profiling tags
