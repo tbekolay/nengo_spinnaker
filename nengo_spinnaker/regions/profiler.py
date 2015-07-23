@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import struct
 
@@ -5,6 +6,7 @@ from .region import Region
 
 MS_SCALE = (1.0 / 200032.4)
 
+logger = logging.getLogger(__name__)
 
 class Profiler(Region):
     """Region used to record spikes."""
@@ -72,11 +74,11 @@ class Profiler(Region):
                 # If the first exit is before the first
                 # Entry, add a dummy entry at beginning
                 if tag_exit_times_ms[0] < tag_entry_times_ms[0]:
-                    print "WARNING: profile starts mid-tag"
+                    logger.warn("Profile starts mid-tag")
                     tag_entry_times_ms = np.append(0.0, tag_entry_times_ms)
 
                 if len(tag_entry_times_ms) > len(tag_exit_times_ms):
-                    print "WARNING: profile finishes mid-tag"
+                    logger.warn("Profile finishes mid-tag")
                     tag_entry_times_ms =\
                         tag_entry_times_ms[:num_exit_times - num_entry_times]
 
