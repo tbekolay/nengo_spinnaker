@@ -11,7 +11,9 @@ void _none_filter_step(uint32_t n_dims, value_t *input,
 
   // The None filter just copies its input to the output
   for (uint32_t d = 0; d < n_dims; d++)
+  {
     output[d] = input[d];
+  }
 }
 
 void _none_filter_init(void *params, struct _if_filter *filter, uint32_t size)
@@ -26,17 +28,17 @@ void _none_filter_init(void *params, struct _if_filter *filter, uint32_t size)
 }
 
 /* 1st Order Low-Pass ********************************************************/
-struct _lowpass_state
+typedef struct _lowpass_state_t
 {
   value_t a;  // exp(-dt / tau)
   value_t b;  // 1 - a
-};
+} lowpass_state_t;
 
 void _lowpass_filter_step(uint32_t n_dims, value_t *input,
                           value_t *output, void *pars)
 {
   // Cast the params
-  struct _lowpass_state *params = (struct _lowpass_state *) pars;
+  lowpass_state_t *params = (lowpass_state_t *) pars;
 
   // Apply the filter to every dimension (realised as a Direct Form I digital
   // filter).
@@ -53,12 +55,12 @@ void _lowpass_filter_init(void *params, struct _if_filter *filter,
   use(size);
 
   // Copy the filter parameters into memory
-  MALLOC_OR_DIE(filter->state, sizeof(struct _lowpass_state));
-  spin1_memcpy(filter->state, params, sizeof(struct _lowpass_state));
+  MALLOC_OR_DIE(filter->state, sizeof(lowpass_state_t));
+  spin1_memcpy(filter->state, params, sizeof(lowpass_state_t));
 
   debug(">> Lowpass filter (%k, %k)\n",
-            ((struct _lowpass_state *)filter->state)->a,
-            ((struct _lowpass_state *)filter->state)->b);
+            ((lowpass_state_t *)filter->state)->a,
+            ((lowpass_state_t *)filter->state)->b);
 
   // Store a reference to the step function
   filter->step = _lowpass_filter_step;
@@ -69,7 +71,7 @@ void _lowpass_filter_init(void *params, struct _if_filter *filter,
  * implementation cause unnecessary numbers of pipeline flushes, so fixed order
  * filters can be implemented to reduce the cost of branch prediction failures.
  */
-struct _lti_state
+typedef struct _lti_state_t
 {
   uint32_t order;  // Order of the filter
   value_t *a;   // Coefficients from the numerator
@@ -86,13 +88,13 @@ struct _lti_state
   // We treat the previous values as two circular buffers. After a simulation
   // step `n` should be incremented (mod order) to rotate the ring.
   int32_t n;
-};
+} lti_state_t;
 
 void _lti_filter_step(uint32_t n_dims, value_t *input,
                       value_t *output, void *s)
 {
   // Cast the state
-  struct _lti_state *state = (struct _lti_state *) s;
+  lti_state_t *state = (lti_state_t *) s;
 
   // Reference to previous values of x and y;
   value_t *x, *y;
@@ -109,10 +111,21 @@ void _lti_filter_step(uint32_t n_dims, value_t *input,
     output[d] = 0.0k;
 
     // Direct Form I filter
-    for (int32_t k=0; k < (int32_t) state->order; k++)
+    // `m` acts as an index into the ring buffer of historic input and output.
+    for (int32_t k=0, m = state->n;
+         k < (int32_t) state->order; k++)
     {
-      output[d] -= state->a[k] * y[(state->n - k - 1) % state->order];
-      output[d] += state->b[k] * x[(state->n - k - 1) % state->order];
+      // Update the index into the ring buffer, if this would go negative it
+      // wraps to the top of the buffer.
+      if(m <= 0)
+      {
+        m += state->order;
+      }
+      m--;
+
+      // Apply this part of the filter
+      output[d] -= state->a[k] * y[m];
+      output[d] += state->b[k] * x[m];
     }
 
     // Include the initial new input
@@ -122,8 +135,12 @@ void _lti_filter_step(uint32_t n_dims, value_t *input,
     y[state->n] = output[d];
   }
 
-  // Rotate the ring buffer.
-  state->n = (state->n + 1) % state->order;
+  // Rotate the ring buffer by moving the starting pointer, if the starting
+  // pointer would go beyond the end of the buffer it is returned to the start.
+  if (++state->n == state->order)
+  {
+    state->n = 0;
+  }
 }
 
 struct _lti_filter_init_params
@@ -139,9 +156,9 @@ void _lti_filter_init(void *p, struct _if_filter *filter, uint32_t size)
     (struct _lti_filter_init_params *) p;
 
   // Malloc space for the parameters
-  MALLOC_OR_DIE(filter->state, sizeof(struct _lti_state));
+  MALLOC_OR_DIE(filter->state, sizeof(lti_state_t));
 
-  struct _lti_state *state = (struct _lti_state *) filter->state;
+  lti_state_t *state = (lti_state_t *) filter->state;
   state->order = params->order;
 
   debug(">> LTI Filter of order %d", state->order);
@@ -161,18 +178,19 @@ void _lti_filter_init(void *p, struct _if_filter *filter, uint32_t size)
   // If debugging then print out all filter parameters
 #ifdef DEBUG
   for (uint32_t k = 0; k < state->order; k++)
+  {
     io_printf(IO_BUF, "  a[%d] = %k\n", k, state->a[k]);
+  }
 
   for (uint32_t k = 0; k < state->order; k++)
+  {
     io_printf(IO_BUF, "  b[%d] = %k\n", k, state->b[k]);
+  }
 #endif
 
   // Zero all the state holding variables
   state->n = 0;
-  for (uint32_t n = 0; n < size * state->order; n++)
-  {
-    state->xz[n] = state->yz[n] = 0.0k;
-  }
+  memset(state->xz, 0, sizeof(value_t) * size * state->order);
 
   // Store a reference to the correct step function for the filter.  Insert any
   // specially optimised filters here.
@@ -248,7 +266,7 @@ void input_filtering_get_filters(
   // Get the number of filters and malloc sufficient space for the filter
   // parameters.
   filters->n_filters = data[0];
-  MALLOC_OR_DIE(filters->filters, 
+  MALLOC_OR_DIE(filters->filters,
                 filters->n_filters * sizeof(struct _if_filter));
 
   debug("Loading %d filters\n", filters->n_filters);
@@ -282,11 +300,9 @@ void input_filtering_get_filters(
                   sizeof(value_t)*params->size);
 
     // Zero the input and the output
-    for (uint32_t d = 0; d < params->size; d++)
-    {
-      filters->filters[f].input->value[d] = 0.0k;
-      filters->filters[f].output[d] = 0.0k;
-    }
+    memset(filters->filters[f].input->value, 0,
+           sizeof(value_t) * params->size);
+    memset(filters->filters[f].output, 0, sizeof(value_t) * params->size);
 
     // Initialise the filter itself
     filter_types[params->init_method]((void *) &params->data,
@@ -314,7 +330,11 @@ void input_filtering_initialise_output(
   // If the output size is zero then don't allocate an accumulator, otherwise
   // malloc sufficient space.
   if (n_dimensions == 0)
+  {
     filters->output = NULL;
+  }
   else
+  {
     MALLOC_OR_DIE(filters->output, sizeof(value_t) * n_dimensions);
+  }
 }
