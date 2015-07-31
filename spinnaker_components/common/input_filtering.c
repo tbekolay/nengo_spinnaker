@@ -71,11 +71,16 @@ void _lowpass_filter_init(void *params, struct _if_filter *filter,
  * implementation cause unnecessary numbers of pipeline flushes, so fixed order
  * filters can be implemented to reduce the cost of branch prediction failures.
  */
+typedef struct _ab_t
+{
+  value_t a;  // Numerator coefficient
+  value_t b;  // Denominator coefficient
+} ab_t;
+
 typedef struct _lti_state_t
 {
   uint32_t order;  // Order of the filter
-  value_t *a;   // Coefficients from the numerator
-  value_t *b;   // Coefficients from the denominator
+  ab_t *abs;       // Filter coefficients
 
   // Previous values of the input (`xz`) and output (`yz`).  These are both 2D
   // arrays, to access the kth last value of dimension d of x use:
@@ -124,8 +129,8 @@ void _lti_filter_step(uint32_t n_dims, value_t *input,
       m--;
 
       // Apply this part of the filter
-      output[d] -= state->a[k] * y[m];
-      output[d] += state->b[k] * x[m];
+      output[d] -= state->abs[k].a * y[m];
+      output[d] += state->abs[k].b * x[m];
     }
 
     // Include the initial new input
@@ -162,9 +167,7 @@ void _lti_filter_init(void *p, struct _if_filter *filter, uint32_t size)
   state->order = params->order;
 
   debug(">> LTI Filter of order %d", state->order);
-
-  MALLOC_OR_DIE(state->a, sizeof(value_t) * state->order);
-  MALLOC_OR_DIE(state->b, sizeof(value_t) * state->order);
+  MALLOC_OR_DIE(state->abs, sizeof(ab_t) * state->order);
 
   // Malloc space for the state
   MALLOC_OR_DIE(state->xz, sizeof(value_t) * state->order * size);
@@ -172,19 +175,14 @@ void _lti_filter_init(void *p, struct _if_filter *filter, uint32_t size)
 
   // Copy the parameters across
   value_t *data = &params->data;
-  spin1_memcpy(state->a, data, sizeof(value_t) * state->order);
-  spin1_memcpy(state->b, data + state->order, sizeof(value_t) * state->order);
+  spin1_memcpy(state->abs, data, sizeof(ab_t) * state->order);
 
   // If debugging then print out all filter parameters
 #ifdef DEBUG
   for (uint32_t k = 0; k < state->order; k++)
   {
-    io_printf(IO_BUF, "  a[%d] = %k\n", k, state->a[k]);
-  }
-
-  for (uint32_t k = 0; k < state->order; k++)
-  {
-    io_printf(IO_BUF, "  b[%d] = %k\n", k, state->b[k]);
+    io_printf(IO_BUF, "a[%d] = %k, b[%d] = %k\n",
+              state->abs[k].a, state->abs[k].b);
   }
 #endif
 

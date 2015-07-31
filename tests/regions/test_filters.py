@@ -205,8 +205,11 @@ class TestLinearFilter(object):
         # Generate what we expect the data to look like
         numd, dend, _ = cont2discrete((num, den), dt)
         numd = numd.flatten()
-        expected_data = np.hstack([tp.np_to_fix(dend[1:]),
-                                   tp.np_to_fix(numd[1:])]).tostring()
+        exp = list()
+        for a, b in zip(dend[1:], numd[1:]):
+            exp.append(a)
+            exp.append(b)
+        expected_data = tp.np_to_fix(np.array(exp)).tostring()
 
         # Check that's what we get
         assert struct.unpack_from("<I", data, 0)[0] == order

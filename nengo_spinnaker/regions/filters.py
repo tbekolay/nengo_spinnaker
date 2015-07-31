@@ -233,11 +233,11 @@ class LinearFilter(Filter):
         assert b[0] == 0.0  # Oops!
         a = a[1:]
         b = b[1:]
+        ab = np.vstack((a, b)).T.flatten()
 
         # Convert the values to fixpoint and write into a data buffer
         struct.pack_into("<I", buffer, offset, self.order)
-        buffer[offset + 4:4+self.order*4] = tp.np_to_fix(a).tostring()
-        buffer[offset + 4+self.order*4:] = tp.np_to_fix(b).tostring()
+        buffer[offset + 4:4+self.order*8] = tp.np_to_fix(ab).tostring()
 
 
 class FilterRoutingRegion(Region):
