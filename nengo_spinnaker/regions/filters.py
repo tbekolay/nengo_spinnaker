@@ -84,7 +84,8 @@ class FilterRegion(Region):
 
     def sizeof(self, *args):
         """Get the size of the filter region in bytes."""
-        # 1 word + the size of the each filter
+        # 1 word + the size of the each filter (which includes a mandatory 4
+        # words, which are the first 4 words in `filter_parameters_t`.)
         words = (1 + 4*len(self.filters) +
                  sum(f.size_words() for f in self.filters))
         return words * 4
@@ -231,9 +232,7 @@ class LinearFilter(Filter):
 
         # Strip out the first values
         assert b[0] == 0.0  # Oops!
-        a = a[1:]
-        b = b[1:]
-        ab = np.vstack((a, b)).T.flatten()
+        ab = np.vstack((a[1:], b[1:])).T.flatten()
 
         # Convert the values to fixpoint and write into a data buffer
         struct.pack_into("<I", buffer, offset, self.order)
