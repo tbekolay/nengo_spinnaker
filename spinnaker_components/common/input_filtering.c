@@ -236,9 +236,6 @@ void input_filtering_get_routes(if_collection_t *filters, uint32_t *routes)
 #define LATCHING 0
 
 // Generic filter parameters
-struct _filter_parameters
-{
-};
 typedef struct _filter_parameters_t
 {
   uint32_t n_words;      // # words representing this filter (exc this struct)
