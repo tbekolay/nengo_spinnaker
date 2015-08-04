@@ -13,6 +13,7 @@
 #include "ensemble.h"
 #include "ensemble_output.h"
 #include "ensemble_pes.h"
+#include "ensemble_spikes.h"
 #include "ensemble_profiler.h"
 
 
@@ -25,7 +26,7 @@ void ensemble_update(uint ticks, uint arg1) {
   }
 
   profiler_write_entry(PROFILER_ENTER | PROFILER_TIMER);
-  
+
   // Values used below
   current_t i_membrane;
   voltage_t v_delta, v_voltage;
@@ -37,6 +38,7 @@ void ensemble_update(uint ticks, uint arg1) {
   input_filtering_step(&g_input);
   input_filtering_step(&g_input_inhibitory);
   input_filtering_step_no_accumulate(&g_input_modulatory);
+  spikes_update_synaptic_filters();
   profiler_write_entry(PROFILER_EXIT | PROFILER_TIMER_INPUT_FILTER);
 
   // Compute the inhibition
@@ -57,7 +59,8 @@ void ensemble_update(uint ticks, uint arg1) {
 
     // Include neuron bias
     i_membrane = (g_ensemble.i_bias[n] +
-                  inhibitory_input * g_ensemble.inhib_gain[n]);
+                  inhibitory_input * g_ensemble.inhib_gain[n] +
+                  get_neuron_spike_input(n));
 
     // Encode the input and add to the membrane current
     for(uint32_t d = 0; d < g_input.output_size; d++)
@@ -103,6 +106,9 @@ void ensemble_update(uint ticks, uint arg1) {
 
       // Notify PES that neuron has spiked
       pes_neuron_spiked(n);
+
+      // Transmit the spike
+      transmit_spike(n);
     }
   }
   profiler_write_entry(PROFILER_EXIT | PROFILER_TIMER_NEURON);
