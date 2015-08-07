@@ -728,17 +728,17 @@ class FilteredActivityRegion(regions.Region):
             return -1
         # Otherwise
         else:
-            # Calculate propogator
+            # Calculate propagator
             propogator = math.exp(-float(self.dt) / float(time_constant))
 
             # Convert to fixed-point
             propogator_fixed = tp.value_to_fix(propogator)
 
             # If there is already a filter with the same fixed-point
-            # propogator in the list, return its index
+            # propagator in the list, return its index
             if propogator_fixed in self.filter_propogators:
                 return self.filter_propogators.index(propogator_fixed)
-            # Otherwise add propogator to list and return its index
+            # Otherwise add propagator to list and return its index
             else:
                 self.filter_propogators.append(propogator_fixed)
                 return (len(self.filter_propogators) - 1)
