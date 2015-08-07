@@ -61,17 +61,16 @@ static inline void pes_neuron_spiked(uint n)
     const pes_parameters_t *parameters = &g_pes_learning_rules[l];
     if(parameters->activity_filter_index == -1)
     {
-      // Extract input signal from filter
-      const filtered_input_buffer_t *filtered_input = g_input_modulatory.filters[parameters->error_signal_filter_index];
-      const value_t *filtered_error_signal = filtered_input->filtered;
+      // Get the filter for the error signal
+      const if_filter_t *error_filter = &g_input_modulatory.filters[parameters->error_signal_filter_index];
 
-      // Get filtered activity of this neuron and it's decoder vector
+      // Get neuron's decoder vector
       value_t *decoder_vector = neuron_decoder_vector(n);
 
       // Loop through output dimensions and apply PES to decoder values offset by output offset
-      for(uint d = 0; d < filtered_input->d_in; d++)
+      for(uint d = 0; d < error_filter->size; d++)
       {
-        decoder_vector[d + parameters->decoder_output_offset] -= (parameters->learning_rate * filtered_error_signal[d]);
+        decoder_vector[d + parameters->decoder_output_offset] -= (parameters->learning_rate * error_filter->output[d]);
       }
     }
   }

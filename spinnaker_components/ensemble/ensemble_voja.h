@@ -64,7 +64,11 @@ static inline value_t voja_get_learning_rate(const voja_parameters_t *parameters
     // from it's first dimension and multiply by the constant error rate
     if(parameters->learning_signal_filter_index != -1)
     {
-      value_t positive_learning_rate = 1.0k + g_input_modulatory.filters[parameters->learning_signal_filter_index]->filtered[0];
+      // Get the filter for the learning signal
+      const if_filter_t *learning_filter = &g_input_modulatory.filters[parameters->learning_signal_filter_index];
+
+      // Add one and multiply by scalar learning rate
+      value_t positive_learning_rate = 1.0k + learning_filter->output[0];
       return parameters->learning_rate * positive_learning_rate;
     }
     // Otherwise, just return the constant learning rate
@@ -89,9 +93,8 @@ static inline void voja_neuron_spiked(uint n)
       // Get learning rate
       const value_t learning_rate = voja_get_learning_rate(parameters);
 
-      // Extract decoded input signal from filter
-      const filtered_input_buffer_t *decoded_input = g_input_learnt_encoder.filters[parameters->decoded_input_filter_index];
-      const value_t *decoded_input_signal = decoded_input->filtered;
+      // Get filter containing input signal
+      const if_filter_t *input_filter = &g_input_learnt_encoder.filters[parameters->decoded_input_filter_index];
 
       // Get this neuron's encoder vector, offset by the encoder offset
       value_t *encoder_vector = neuron_encoder_vector(n) + parameters->encoder_offset;
@@ -100,9 +103,9 @@ static inline void voja_neuron_spiked(uint n)
       const value_t input_scale = learning_rate * g_ensemble.gain[n] * g_voja_one_over_radius;
 
       // Loop through input dimensions
-      for(uint d = 0; d < decoded_input->d_in; d++)
+      for(uint d = 0; d < input_filter->size; d++)
       {
-        encoder_vector[d] += (input_scale * decoded_input_signal[d]) - (learning_rate * encoder_vector[d]);
+        encoder_vector[d] += (input_scale * input_filter->output[d]) - (learning_rate * encoder_vector[d]);
       }
     }
   }

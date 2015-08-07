@@ -72,8 +72,7 @@ void voja_step()
       const value_t learning_rate = voja_get_learning_rate(parameters);
 
       // Extract decoded input signal from filter
-      const filtered_input_buffer_t *decoded_input = g_input_learnt_encoder.filters[parameters->decoded_input_filter_index];
-      const value_t *decoded_input_signal = decoded_input->filtered;
+      const if_filter_t *decoded_input = &g_input_learnt_encoder.filters[parameters->decoded_input_filter_index];
 
       // Extract filtered activity vector indexed by learning rule
       const value_t *filtered_activity = g_filtered_activities[parameters->activity_filter_index];
@@ -89,9 +88,9 @@ void voja_step()
         const value_t input_scale = encoder_scale * g_ensemble.gain[n] * g_voja_one_over_radius;
 
         // Loop through input dimensions
-        for(uint d = 0; d < decoded_input->d_in; d++)
+        for(uint d = 0; d < decoded_input->size; d++)
         {
-          encoder_vector[d] += (input_scale * decoded_input_signal[d]) - (encoder_scale * encoder_vector[d]);
+          encoder_vector[d] += (input_scale * decoded_input->output[d]) - (encoder_scale * encoder_vector[d]);
         }
       }
     }

@@ -37,18 +37,15 @@ void c_main(void)
   }
 
   // Load subcomponents
-  if (!input_filter_get_filters(&g_input, region_start(7, address)) ||
-    !input_filter_get_filter_routes(&g_input, region_start(8, address)) ||
-    !input_filter_get_filters(&g_input_inhibitory, region_start(9, address)) ||
-    !input_filter_get_filter_routes(&g_input_inhibitory, region_start(10, address)) ||
-    !input_filter_get_filters(&g_input_modulatory, region_start(11, address)) ||
-    !input_filter_get_filter_routes(&g_input_modulatory, region_start(12, address)) ||
-    !input_filter_get_filters(&g_input_learnt_encoder, region_start(13, address)) ||
-    !input_filter_get_filter_routes(&g_input_learnt_encoder, region_start(14, address)))
-  {
-    io_printf(IO_BUF, "[Ensemble] Failed to start.\n");
-    return;
-  }
+  input_filtering_get_filters(&g_input, region_start(7, address));
+  input_filtering_get_routes(&g_input, region_start(8, address));
+  input_filtering_get_filters(&g_input_inhibitory, region_start(9, address));
+  input_filtering_get_routes(&g_input_inhibitory, region_start(10, address));
+  input_filtering_get_filters(&g_input_modulatory, region_start(11, address));
+  input_filtering_get_routes(&g_input_modulatory, region_start(12, address));
+  input_filtering_get_filters(&g_input_learnt_encoder, region_start(13, address)) ;
+  input_filtering_get_routes(&g_input_learnt_encoder, region_start(14, address));
+  
   
   if(!get_pes(region_start(15, address)))
   {
@@ -67,9 +64,9 @@ void c_main(void)
     io_printf(IO_BUF, "[Ensemble] Failed to start.\n");
     return;
   }
-  
+
   // Set up spike recording
-  if (!record_spike_buffer_initialise(&g_ensemble.record_spikes,
+  if (!record_buffer_initialise(&g_ensemble.record_spikes,
     region_start(18, address), simulation_ticks, g_ensemble.n_neurons))
   {
     io_printf(IO_BUF, "[Ensemble] Failed to start.\n");
@@ -104,7 +101,7 @@ void c_main(void)
     config_get_n_ticks();
 
     // Reset the spike recording region
-    record_spike_buffer_reset(&g_ensemble.record_spikes);
+    record_buffer_reset(&g_ensemble.record_spikes);
     record_learnt_encoders_reset(&g_ensemble.record_learnt_encoders);
 
     // Perform the simulation

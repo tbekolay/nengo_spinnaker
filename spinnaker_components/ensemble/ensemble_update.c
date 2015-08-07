@@ -31,10 +31,10 @@ void ensemble_update(uint ticks, uint arg1)
 
   // Filter inputs, updating accumulator for excitatory and inhibitory inputs
   profiler_write_entry(PROFILER_ENTER | PROFILER_TIMER_INPUT_FILTER);
-  input_filter_step(&g_input, true);
-  input_filter_step(&g_input_inhibitory, true);
-  input_filter_step(&g_input_modulatory, false);
-  input_filter_step(&g_input_learnt_encoder, false);
+  input_filtering_step(&g_input);
+  input_filtering_step(&g_input_inhibitory);
+  input_filtering_step_no_accumulate(&g_input_modulatory);
+  input_filtering_step_no_accumulate(&g_input_learnt_encoder);
   profiler_write_entry(PROFILER_EXIT | PROFILER_TIMER_INPUT_FILTER);
 
   // Filter activity
@@ -44,7 +44,7 @@ void ensemble_update(uint ticks, uint arg1)
   value_t inhibitory_input = 0;
   for (uint d = 0; d < g_ensemble.n_inhib_dims; d++)
   {
-    inhibitory_input += g_input_inhibitory.input[d];
+    inhibitory_input += g_input_inhibitory.output[d];
   }
 
   profiler_write_entry(PROFILER_ENTER | PROFILER_TIMER_NEURON);
@@ -64,12 +64,11 @@ void ensemble_update(uint ticks, uint arg1)
 
     // Loop through learnt input signals and encoder slices
     uint f = 0;
-    uint e = g_input.n_dimensions;
-    for(; f < g_input_learnt_encoder.n_filters; f++, e += g_input.n_dimensions)
+    uint e = g_input.output_size;
+    for(; f < g_input_learnt_encoder.n_filters; f++, e += g_input.output_size)
     {
       // Extract input signal from learnt encoder filter
-      const filtered_input_buffer_t *filtered_input = g_input_learnt_encoder.filters[f];
-      const value_t *filtered_input_signal = filtered_input->filtered;
+      const if_filter_t *filtered_input = &g_input_learnt_encoder.filters[f];
 
       // Get encoder vector for this neuron offset for correct learnt encoder
       const value_t *learnt_encoder_vector = encoder_vector + e;
@@ -78,15 +77,15 @@ void ensemble_update(uint ticks, uint arg1)
       // **NOTE** idea here is that by interspersing these between encoding
       // operations, write buffer should have time to be written out
       record_learnt_encoders(&g_ensemble.record_learnt_encoders,
-        g_input.n_dimensions, learnt_encoder_vector);
+        g_input.output_size, learnt_encoder_vector);
 
       // If neuron's not in refractory period, loop through filter
       // dimensions and apply input encoded by learnt encoders
       if(!in_refractory_period)
       {
-        for(uint d = 0; d < filtered_input->d_in; d++)
+        for(uint d = 0; d < filtered_input->size; d++)
         {
-          i_membrane += learnt_encoder_vector[d] * filtered_input_signal[d];
+          i_membrane += learnt_encoder_vector[d] * filtered_input->output[d];
         }
       }
     }
@@ -99,7 +98,7 @@ void ensemble_update(uint ticks, uint arg1)
     }
 
     // Encode the input and add to the membrane current
-    for(uint d = 0; d < g_input.n_dimensions; d++)
+    for(uint d = 0; d < g_input.output_size; d++)
     {
       i_membrane += encoder_vector[d] * g_ensemble.input[d];
     }
@@ -175,7 +174,7 @@ void ensemble_update(uint ticks, uint arg1)
   profiler_write_entry(PROFILER_EXIT | PROFILER_TIMER_OUTPUT);
 
   // Flush the spike recording buffer
-  record_spike_buffer_flush(&g_ensemble.record_spikes);
+  record_buffer_flush(&g_ensemble.record_spikes);
 
   profiler_write_entry(PROFILER_EXIT | PROFILER_TIMER);
 }

@@ -33,10 +33,9 @@
 #include "nengo_typedefs.h"
 #include "nengo-common.h"
 
-#include "dimensional-io.h"
-#include "record_spikes.h"
+#include "input_filtering.h"
+#include "recording.h"
 #include "record_learnt_encoders.h"
-#include "input_filter.h"
 
 /* Structs ******************************************************************/
 /** \brief Representation of system region. See ::data_system. */
@@ -88,7 +87,7 @@ typedef struct ensemble_parameters
   value_t *output;
 
   //! Spike recording buffer
-  spike_recording_buffer_t record_spikes;
+  recording_buffer_t record_spikes;
 
   //! Learnt encoder recording buffer
   encoder_recording_buffer_t record_learnt_encoders;
@@ -101,19 +100,11 @@ extern uint g_output_period;              //!< Delay in transmitting decoded out
 
 extern uint g_n_output_dimensions;
 
-// Input filters and buffers for general and inhibitory inputs. Their outputs
-// are summed into accumulators which are used to drive the standard neural input
-extern input_filter_t g_input;
-extern input_filter_t g_input_inhibitory;
-
-// Input filters and buffers for modulatory signals. Their
-// outputs are left seperate for use by learning rules
-extern input_filter_t g_input_modulatory;
-
-// Input filters and buffers for signals to be encoded by learnt encoders.
-// Each output is encoded by a seperate encoder so these are also left seperate
-extern input_filter_t g_input_learnt_encoder;
-
+extern if_collection_t
+  g_input,             //!< Input filters and buffers
+  g_input_inhibitory,  //!< Input filters and buffers
+  g_input_modulatory,  //!< Input filters and buffers
+  g_input_learnt_encoder;
 /* Functions ****************************************************************/
 /**
  * \brief Initialise the ensemble.
