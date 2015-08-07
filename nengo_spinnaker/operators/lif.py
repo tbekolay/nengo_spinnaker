@@ -289,17 +289,21 @@ class EnsembleLIF(object):
         for p in self.local_probes:
             # If this is an encoder probe and encoder probing
             # isn't already enabled, create region and set flag
-            if p.attr == "scaled_encoders" and not self.probe_encoders:
-                self.encoder_recording_region = EncoderRecordingRegion(
-                    n_steps,
-                    encoders_with_gain.shape[1] - self.ensemble.size_in
-                )
-                self.probe_encoders = True
+            if p.attr == "scaled_encoders":
+                if not self.probe_encoders:
+                    self.encoder_recording_region = EncoderRecordingRegion(
+                        n_steps,
+                        encoders_with_gain.shape[1] - self.ensemble.size_in
+                    )
+                    self.probe_encoders = True
             # If this is a spike probe and spike probing isn't
             # already enabled, create region and set flag
-            elif p.attr in ("output", "spikes") and not self.probe_spikes:
-                self.spike_recording_region = SpikeRecordingRegion(n_steps)
-                self.probe_spikes = True
+            elif p.attr in ("output", "spikes"):
+                if not self.probe_spikes:
+                    self.spike_recording_region = SpikeRecordingRegion(
+                        n_steps
+                    )
+                    self.probe_spikes = True
             else:
                 raise NotImplementedError(
                     "SpiNNaker does not support %s probe type." % p.attr
