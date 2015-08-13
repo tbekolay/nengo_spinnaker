@@ -26,7 +26,7 @@ void ensemble_update(uint ticks, uint arg1) {
   }
 
   profiler_write_entry(PROFILER_ENTER | PROFILER_TIMER);
-
+  
   // Values used below
   current_t i_membrane;
   voltage_t v_delta, v_voltage;
@@ -102,14 +102,20 @@ void ensemble_update(uint ticks, uint arg1) {
       }
 
       // Record that the spike occurred
-      record_spike(&g_ensemble.recd, n);
+      record_spike(&g_ensemble.record_spikes, n);
 
       // Notify PES that neuron has spiked
       pes_neuron_spiked(n);
 
       // Transmit the spike
       transmit_spike(n);
+
+      // Ensure the voltage is zeroed before we record it
+      v_voltage = 0.0k;
     }
+
+    // Record the neuron voltage
+    record_voltage(&g_ensemble.record_voltages, n, v_voltage);
   }
   profiler_write_entry(PROFILER_EXIT | PROFILER_TIMER_NEURON);
 
@@ -129,8 +135,9 @@ void ensemble_update(uint ticks, uint arg1) {
 
   profiler_write_entry(PROFILER_EXIT | PROFILER_TIMER_OUTPUT);
 
-  // Flush the recording buffer
-  record_buffer_flush(&g_ensemble.recd);
+  // Flush the recording buffers
+  record_buffer_flush(&g_ensemble.record_spikes);
+  record_buffer_flush(&g_ensemble.record_voltages);
 
   profiler_write_entry(PROFILER_EXIT | PROFILER_TIMER);
 }
