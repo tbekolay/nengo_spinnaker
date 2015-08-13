@@ -1,6 +1,7 @@
 #include "ensemble.h"
 #include "ensemble_data.h"
 #include "ensemble_pes.h"
+#include "ensemble_spikes.h"
 #include "ensemble_profiler.h"
 
 
@@ -65,6 +66,16 @@ void c_main(void) {
     io_printf(IO_BUF, "[Ensemble] Failed to start.\n");
     return;
   }
+
+  // Spike transmission
+  region_system_t *sys_region = (region_system_t *) region_start(1, address);
+  spikes_prepare(sys_region->flags & TRANSMIT_SPIKES,
+                 sys_region->spike_base_key,
+                 sys_region->flags & RECEIVE_SPIKES,
+                 sys_region->n_neurons,
+                 region_start(17, address),  // 17: Synaptic filter parameters
+                 region_start(18, address),  // 18: Synaptic routing
+                 region_start(19, address)); // 19: Weight matrices in SDRAM
 
   // Set up profiler
   profiler_read_region(region_start(14, address));

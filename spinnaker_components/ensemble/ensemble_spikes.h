@@ -50,14 +50,16 @@ typedef struct _synapse_row_table_t
 } synapse_row_table_t;
 
 
-/* Prepare for receiving spikes through the network.
+/* Prepare for transmitting and receiving spikes.
  *
  * NOTE: Will register some callback handlers for MC packets and DMA
  * completion.
  */
-void spikes_prepare_rx(
+void spikes_prepare(
   bool transmit_spikes, // Whether to send spikes or not
   uint32_t population_key,  // Base key used to transmit all spikes
+  bool receive_spikes,  // Whether we expect to receive spikes or not
+  uint32_t n_neurons,   // Number of neurons (length of synaptic row)
   uint32_t *filter_data,  // Standard filter data for the synapses
   uint32_t *synaptic_rows_address,  // Address of the weight matrix
   uint32_t *row_data  // 1 word length + array of `synapse_index_t`

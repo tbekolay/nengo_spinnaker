@@ -41,6 +41,8 @@ enum
 {
   RECORD_SPIKES   = (1 << 0),
   RECORD_VOLTAGES = (1 << 1),
+  TRANSMIT_SPIKES = (1 << 2),
+  RECEIVE_SPIKES  = (1 << 3),
 } EnsembleFlags;
 
 /* Structs ******************************************************************/
@@ -56,6 +58,7 @@ typedef struct region_system
   uint32_t flags;
   uint32_t n_inhibitory_dimensions;
   uint32_t num_profiler_samples;
+  uint32_t spike_base_key;
 } region_system_t;
 
 /** \brief Shared ensemble parameters.

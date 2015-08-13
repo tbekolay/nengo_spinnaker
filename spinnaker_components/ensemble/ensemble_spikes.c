@@ -311,23 +311,37 @@ void prepare_synaptic_routing(uint32_t *data, synapse_row_table_t *table)
 }
 
 // ----------------------------------------------------------------------------
-/* Prepare for receiving spikes.
+/* Prepare for transmitting and receiving spikes.
  */
-void spikes_prepare_rx(
+void spikes_prepare(
   bool transmit_spikes,
   uint32_t population_key,
+  bool receive_spikes,
+  uint32_t n_neurons,
   uint32_t *filter_data,
   uint32_t *synaptic_rows_address,
   uint32_t *row_data
 )
 {
-  // Store basic parameters
+  // Store basic parameters for transmitting spikes
   _spike_transmit_spikes = transmit_spikes;
   _spike_population_key = population_key;
+
+  // If not receiving spikes then return
+  if (!receive_spikes)
+  {
+    return;
+  }
 
   // Prepare queues for receiving spikes
   _spike_queue_prep();
   _row_queue_prep();
+
+  // Prepare the synaptic row buffers. The additional word in the buffers is
+  // used to indicate which filter should be used for the synapses.
+  MALLOC_OR_DIE(synaptic_buffers, sizeof(uint32_t **) * 2);
+  MALLOC_OR_DIE(synaptic_buffers[0], sizeof(uint32_t) * (n_neurons + 1));
+  MALLOC_OR_DIE(synaptic_buffers[1], sizeof(uint32_t) * (n_neurons + 1));
 
   // Read in synaptic filters
   input_filtering_get_filters(synapse_filters, filter_data);
