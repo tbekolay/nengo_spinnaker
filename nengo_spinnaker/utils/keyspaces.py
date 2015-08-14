@@ -116,6 +116,13 @@ class KeyspaceContainer(collections.defaultdict):
                                                self.filter_routing_tag])
         nengo_ks.add_field("index", start_at=0)
 
+        # Add the spikes keyspaces
+        spikes_ks = self["nengo.spikes"]
+        spikes_ks.add_field("object", tags=[self.routing_tag,
+                                            self.filter_routing_tag])
+        spikes_ks.add_field("cluster", tags=[self.routing_tag])
+        spikes_ks.add_field("index", start_at=0)
+
     def assign_fields(self):
         """Call `assign_fields` on the master keyspace, forcing field
         assignation for all keyspaces.
@@ -155,4 +162,4 @@ def is_nengo_keyspace(keyspace):
     bool
         True if the bitspace is a member of the class of Nengo keyspaces.
     """
-    return keyspace.user == 0
+    return keyspace.user in (0, 1)

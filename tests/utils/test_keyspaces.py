@@ -32,6 +32,9 @@ def test_Keyspaces_and_is_nengo_keyspace():
     default_ks = kss["nengo"]
     default_ks(object=0, cluster=0, connection=0, index=0)
 
+    spike_ks = kss["nengo.spikes"]
+    spike_ks(object=0, cluster=0, index=0)
+
     other_ks = kss["other"]
 
     assert kss.routing_tag is not None
@@ -39,6 +42,7 @@ def test_Keyspaces_and_is_nengo_keyspace():
 
     # Can easily determine what is and isn't a default keyspace
     assert keyspaces.is_nengo_keyspace(default_ks)
+    assert keyspaces.is_nengo_keyspace(spike_ks)
     assert not keyspaces.is_nengo_keyspace(other_ks)
 
     # Assigning fields fixes sizing and positioning
