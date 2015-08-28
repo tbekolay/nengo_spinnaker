@@ -77,10 +77,19 @@ class FilterRegion(Region):
     supported_filter_types = registerabledict()
     """Dictionary mapping synapse type to a supported type of filter."""
 
-    def __init__(self, filters, dt):
-        """Create a new filter region."""
+    def __init__(self, filters, dt, sliced_filters=False):
+        """Create a new filter region.
+
+        Parameters
+        ----------
+        sliced_filters : bool
+            If False, the default, then the width of each filter will be
+            respected.  Otherwise the width of each filter will be set to the
+            size of the vertex slice.
+        """
         self.filters = filters
         self.dt = dt
+        self.sliced = sliced_filters
 
     def sizeof(self, *args):
         """Get the size of the filter region in bytes."""
@@ -97,10 +106,22 @@ class FilterRegion(Region):
         data = bytearray(self.sizeof())
         struct.pack_into("<I", data, 0, len(self.filters))
 
+        # If the filters are sliced use the first arg in args as the vertex
+        # slice.
+        if self.sliced:
+            vertex_slice = args[0]
+            width = vertex_slice.stop - vertex_slice.start
+
         # Write in each region
         offset = 1
         for f in self.filters:
-            f.pack_into(self.dt, data, offset*4)
+            if not self.sliced:
+                f.pack_into(self.dt, data, offset*4)
+            else:
+                # If the filters are sliced then force the width of the filter
+                # when writing it out.
+                f.pack_into(self.dt, data, offset*4, width=width)
+
             offset += f.size_words() + 4
 
         # Write the data block to file
@@ -123,13 +144,20 @@ class Filter(object):
         """
         raise NotImplementedError
 
-    def pack_into(self, dt, buffer, offset=0):
-        """Pack the header struct describing the filter into the buffer."""
+    def pack_into(self, dt, buffer, offset=0, width=None):
+        """Pack the header struct describing the filter into the buffer.
+
+        Parameters
+        ----------
+        width : int or None
+            If None, the default, the width specified by the filter will be
+            used. Otherwise the specified width will be used instead.
+        """
         # Pack the header
         struct.pack_into("<4I", buffer, offset,
                          self.size_words(),
                          self.method_index(),
-                         self.width,
+                         width or self.width,
                          0x1 if self.latching else 0x0)
 
         # Pack any data

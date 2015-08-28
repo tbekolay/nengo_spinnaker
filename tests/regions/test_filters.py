@@ -309,6 +309,35 @@ def test_filter_region():
     assert fp.read() == expected_data
 
 
+def test_sliced_filter_region():
+    """Test creation of a filter data region which dynamically sets the width
+    of the filters.
+    """
+    # Create two filters
+    fs = [LowpassFilter(5, False, 0.1),
+          NoneFilter(3, False)]
+
+    # Create the filter region
+    fr = FilterRegion(fs, dt=0.001, sliced_filters=True)
+
+    # The size should be correct (count of words + header 1 + data 1 + header 2
+    # + data 2)
+    assert fr.sizeof() == 4 + 16 + 8 + 16 + 0
+
+    # Check that the data is written out correctly
+    fp = tempfile.TemporaryFile()
+    fr.write_subregion_to_file(fp, slice(1, 7))
+    fp.seek(0)
+
+    length, = struct.unpack("<I", fp.read(4))
+    assert length == len(fs)
+
+    expected_data = bytearray(fr.sizeof() - 4)
+    fs[0].pack_into(fr.dt, expected_data, width=6)
+    fs[1].pack_into(fr.dt, expected_data, (fs[0].size_words() + 4)*4, width=6)
+    assert fp.read() == expected_data
+
+
 def test_filter_routing_region():
     """Test creation of a filter routing region."""
     # Define some keyspaces
