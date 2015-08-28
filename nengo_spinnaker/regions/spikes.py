@@ -2,18 +2,22 @@
 construct them.
 """
 import numpy as np
+from six import iteritems
 import struct
 
 from .region import Region
+from .filters import add_filter, FilterRegion
 from ..utils import type_casts as tp
 
 
-def make_synaptic_regions():
+def make_synaptic_regions(target_ens, signals_and_connections, model):
     """Construct the regions required for representing synaptic routing,
     synaptic filtering and synaptic weight matrices.
 
     Parameters
     ----------
+    target_ens : :py:class:`nengo.Ensemble`
+        Ensemble to retrieve the synaptic regions for.
 
     Returns
     -------
@@ -24,7 +28,48 @@ def make_synaptic_regions():
     SynapticRoutingRegion
         Synaptic routing information.
     """
-    raise NotImplementedError
+    filters = list()
+    filter_indices = list()
+    weight_matrices = list()
+    synaptic_routing = list()
+
+    # For each signal and connection which target the given Ensemble
+    for signal, connections in iteritems(signals_and_connections):
+        for conn in connections:
+            # If this connection doesn't target the desired ensemble then skip
+            # it.
+            if conn.post_obj is not target_ens.neurons:
+                continue
+
+            # Otherwise add the information pertaining to this connection to
+            # what we already have.
+            # Add the filter to the list of filters
+            index = add_filter(filters, conn, latching=False,
+                               width=0, minimise=True)
+
+            # Add a routing entry for the weight matrix
+            synaptic_routing.append((signal.keyspace, len(filter_indices)))
+
+            # Get the synaptic weight matrix and add it to the list of weight
+            # matrices.
+            matrix = model.params[conn].transform.T
+            weight_matrices.append(matrix)
+
+            # Add the right number of filter indices to the list
+            filter_indices.extend([index] * matrix.shape[0])
+
+    # Combine the weight matrices into a single block
+    weight_matrices = np.vstack(weight_matrices)
+
+    # Finally create the regions
+    filter_region = FilterRegion(filters, model.dt, sliced_filters=True)
+    wm_region = SynapticWeightMatrixRegion(filter_indices, weight_matrices)
+    wm_routing = SynapticRoutingRegion(
+        synaptic_routing,
+        filter_routing_tag=model.keyspaces.filter_routing_tag
+    )
+
+    return filter_region, wm_region, wm_routing
 
 
 class SynapticWeightMatrixRegion(Region):

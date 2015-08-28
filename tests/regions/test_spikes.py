@@ -1,11 +1,99 @@
+import nengo
 import numpy as np
 import pytest
 import struct
 import tempfile
 
+from nengo_spinnaker.builder.builder import BuiltConnection, Model, Signal
 from nengo_spinnaker.utils import type_casts as tp
 from nengo_spinnaker.utils.keyspaces import KeyspaceContainer
 from nengo_spinnaker.regions import spikes
+
+
+def test_make_synaptic_regions():
+    """Test the synaptic regions can be correctly constructed from existing
+    connections and signals.
+    """
+    # Create a model with some spike based connections in it.
+    with nengo.Network():
+        # Create three ensembles
+        a = nengo.Ensemble(5, 1)
+        b = nengo.Ensemble(6, 1)
+        c = nengo.Ensemble(7, 1)
+
+        # Create some spike connections
+        # A->B and A->C will share a signal
+        a_b_weights = np.random.normal(size=(a.n_neurons, b.n_neurons)).T
+        a_b = nengo.Connection(a.neurons, b.neurons,
+                               transform=a_b_weights)
+        a_c_weights = np.random.normal(size=(a.n_neurons, c.n_neurons)).T
+        a_c = nengo.Connection(a.neurons, c.neurons,
+                               transform=a_c_weights, synapse=0.01)
+
+        # B->C
+        b_c_weights = np.random.normal(size=(b.n_neurons, c.n_neurons)).T
+        b_c = nengo.Connection(b.neurons, c.neurons,
+                               transform=b_c_weights, synapse=0.02)
+
+    # Create two signals to combine with the connections
+    ksc = KeyspaceContainer()
+    ks = ksc["nengo.spikes"]
+    sig_a = Signal(None, [None], ks(object=0))
+    sig_b = Signal(None, [None], ks(object=1))
+
+    # Create an empty model to contain all of the parameters
+    model = Model(keyspaces=ksc)
+    model.params[a_b] = BuiltConnection(None, None, a_b_weights, None)
+    model.params[a_c] = BuiltConnection(None, None, a_c_weights, None)
+    model.params[b_c] = BuiltConnection(None, None, b_c_weights, None)
+
+    # Create the synaptic regions for B, this should contain one weight matrix
+    # because there is only one incoming connection.
+    b_filters, b_wm, b_routing = spikes.make_synaptic_regions(
+        b, {sig_a: [a_b, a_c]}, model
+    )
+
+    # B should have only one filter
+    assert len(b_filters.filters) == 1
+    assert b_filters.dt == model.dt
+    assert b_filters.sliced
+
+    # B should have one synaptic matrix equal to a_b_weights
+    assert b_wm.data.shape[0] == a.n_neurons
+    assert np.all(b_wm.data[:, 1:] == tp.np_to_fix(a_b_weights.T))
+    assert np.all(b_wm.data[:, 0] == 0)
+
+    # B should have one synaptic routing entry
+    assert b_routing.keyspace_routes == [(sig_a.keyspace, 0)]
+
+    # Create the synaptic weight regions for C, this should contain two weight
+    # matrices because there are two incoming connections.
+    c_filters, c_wm, c_routing = spikes.make_synaptic_regions(
+        c, {sig_a: [a_b, a_c], sig_b: [b_c]}, model
+    )
+
+    # C should have two filters
+    assert len(c_filters.filters) == 2
+
+    # C should have two synaptic routing entries, and these should match the
+    # expected weight matrices.
+    assert len(c_routing.keyspace_routes) == 2
+    r0, r1 = c_routing.keyspace_routes
+
+    # Get the weight matrices
+    wm0 = c_wm.data[slice(r0[1], r1[1])]
+    wm1 = c_wm.data[r1[1]:]
+
+    if r0[0] == sig_a.keyspace:
+        assert np.all(wm0[:, 1:] == tp.np_to_fix(a_c_weights.T))
+        assert np.all(wm1[:, 1:] == tp.np_to_fix(b_c_weights.T))
+    else:
+        assert np.all(wm0[:, 1:] == tp.np_to_fix(b_c_weights.T))
+        assert np.all(wm1[:, 1:] == tp.np_to_fix(a_c_weights.T))
+
+    # Check the filter indices
+    assert np.all(wm0[:, 0] == 0)
+    assert np.all(wm1[:, 0] == 1)
 
 
 @pytest.mark.parametrize(
