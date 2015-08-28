@@ -9,6 +9,26 @@ from nengo_spinnaker.utils.collections import registerabledict
 from nengo_spinnaker.utils import type_casts as tp
 
 
+def add_filter(filters, connection, latching, width=None, minimise=False):
+    """Add a filter to a list of filters and return the index at which it was
+    added.
+    """
+    # Make the filter
+    f = FilterRegion.supported_filter_types[type(connection.synapse)].\
+            from_connection(connection, latching, width=width)
+
+    # Store the filter and return the index at which we inserted it
+    if minimise:
+        for index, g in enumerate(filters):
+            if f == g:
+                return index
+
+    # If we didn't use an existing filter we add a new filter and return its
+    # index.
+    filters.append(f)
+    return len(filters) - 1
+
+
 def make_filter_regions(signals_and_connections, dt, minimise=False,
                         filter_routing_tag="filter_routing",
                         index_field="index", width=None):
@@ -37,18 +57,10 @@ def make_filter_regions(signals_and_connections, dt, minimise=False,
 
     for signal, connections in iteritems(signals_and_connections):
         for connection in connections:
-            # Make the filter
-            f = FilterRegion.supported_filter_types[type(connection.synapse)].\
-                from_signal_and_connection(signal, connection, width=width)
-
-            # Store the filter and add the route
-            for index, g in enumerate(filters):
-                if f == g and minimise:
-                    break
-            else:
-                index = len(filters)
-                filters.append(f)
-
+            # Add the filter to the list of filters and record where it was
+            # added
+            index = add_filter(filters, connection, signal.latching,
+                               width=width, minimise=minimise)
             keyspace_routes.append((signal.keyspace, index))
 
     # Create the regions
@@ -168,10 +180,10 @@ class Filter(object):
 class NoneFilter(Filter):
     """Represents a filter which does nothing."""
     @classmethod
-    def from_signal_and_connection(cls, signal, connection, width=None):
+    def from_connection(cls, connection, latching, width=None):
         if width is None:
             width = connection.post_obj.size_in
-        return cls(width, signal.latching)
+        return cls(width, latching)
 
     def method_index(self):
         """Get the index into the array of filter functions."""
@@ -195,10 +207,10 @@ class LowpassFilter(Filter):
         self.time_constant = time_constant
 
     @classmethod
-    def from_signal_and_connection(cls, signal, connection, width=None):
+    def from_connection(cls, connection, latching, width=None):
         if width is None:
             width = connection.post_obj.size_in
-        return cls(width, signal.latching, connection.synapse.tau)
+        return cls(width, latching, connection.synapse.tau)
 
     def method_index(self):
         """Get the index into the array of filter functions."""
@@ -211,6 +223,10 @@ class LowpassFilter(Filter):
     def __eq__(self, other):
         return (super(LowpassFilter, self).__eq__(other) and
                 self.time_constant == other.time_constant)
+
+    def __repr__(self):
+        return "LowpassFilter({}, {}, {})".format(self.width, self.latching,
+                                                  self.time_constant)
 
     def pack_data(self, dt, buffer, offset=0):
         """Pack the struct describing the filter into the buffer."""
@@ -231,10 +247,10 @@ class LinearFilter(Filter):
         self.order = len(den) - 1
 
     @classmethod
-    def from_signal_and_connection(cls, signal, connection, width=None):
+    def from_connection(cls, connection, latching, width=None):
         if width is None:
             width = connection.post_obj.size_in
-        return cls(width, signal.latching,
+        return cls(width, latching,
                    connection.synapse.num, connection.synapse.den)
 
     def method_index(self):
