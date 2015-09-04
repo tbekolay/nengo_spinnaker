@@ -6,7 +6,9 @@ from nengo_spinnaker.builder.builder import InputPort, Model, OutputPort
 from nengo_spinnaker.builder.connection import (
     generic_source_getter,
     generic_sink_getter,
-    build_generic_connection_params
+    build_generic_connection_params,
+    build_generic_transmission_params,
+    build_generic_reception_params,
 )
 
 
@@ -69,3 +71,29 @@ def test_build_standard_connection_params():
     assert params.transform == 1.0
     assert params.eval_points is None
     assert params.solver_info is None
+
+
+def test_build_standard_transmission_params():
+    # Create the test network
+    with nengo.Network():
+        a = nengo.Node(lambda t: [t, t], size_in=0, size_out=2)
+        b = nengo.Node(lambda t, x: None, size_in=1, size_out=0)
+        a_b = nengo.Connection(a[0], b)
+
+    # Build the transmission parameters
+    params = build_generic_transmission_params(None, a_b)
+    assert params.pre_slice == a_b.pre_slice
+    assert params.transform == 1.0
+    assert params.transform.shape == (1, 1)
+
+
+def test_build_standard_reception_params():
+    # Create the test network
+    with nengo.Network():
+        a = nengo.Node(lambda t: [t, t], size_in=0, size_out=2)
+        b = nengo.Node(lambda t, x: None, size_in=1, size_out=0)
+        a_b = nengo.Connection(a[0], b, synapse=0.03)
+
+    # Build the transmission parameters
+    params = build_generic_reception_params(None, a_b)
+    assert params.filter is a_b.synapse

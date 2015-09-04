@@ -4,6 +4,7 @@ from nengo.utils.builder import full_transform
 from .builder import (
     BuiltConnection, InputPort, Model, ObjectPort, OutputPort, spec
 )
+from .model import TransmissionParameters, ReceptionParameters
 
 
 @Model.source_getters.register(nengo.base.NengoObject)
@@ -26,3 +27,23 @@ def build_generic_connection_params(model, conn):
         eval_points=None,
         solver_info=None
     )
+
+
+def build_generic_transmission_params(model, conn):
+    """Build parameters necessary for transmitting packets to simulate this
+    connection.
+    """
+    # We return the full transform in a form that guarantees that it is a
+    # matrix and we include the pre_slice separately.
+    return TransmissionParameters(
+        conn.pre_slice,
+        full_transform(conn, slice_pre=False, allow_scalars=False)
+    )
+
+
+def build_generic_reception_params(model, conn):
+    """Build parameters necessary for receiving packets that simulate this
+    connection.
+    """
+    # Just extract the synapse from the connection.
+    return ReceptionParameters(conn.synapse)
