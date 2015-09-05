@@ -94,7 +94,7 @@ class TransmissionParameters(object):
     def __hash__(self):
         # Hash by type, pre_slice and transform data
         return hash((self.__class__, hash_slice(self.pre_slice),
-                     self.transform.shape, self.transform.data))
+                     self.transform.shape, self.transform.data.tobytes()))
 
     def __eq__(self, b):
         # Equivalent if they are of exactly the same type
