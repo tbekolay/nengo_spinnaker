@@ -7,45 +7,6 @@ import numpy as np
 from ..utils.hash import hash_slice
 
 
-# Connection related objects
-# --------------------------
-# The following objects are concerned with specifying how connections are
-# translated into streams of packets transmitted across the SpiNNaker network.
-class Signal(object):
-    """Stream of multicast packets associated with one source and multiple
-    sinks.
-
-    Attributes
-    ----------
-    source : ObjectPort
-        The source of a stream of packets.
-    transmission_parameters :
-        Source-specific parameters which will be used to determine how the
-        packets to be sent across the SpiNNaker network should be formed.
-    sinks : [(ObjectPort, parameters), ...]
-        List of pairs of sinks and parameters which are specific sinks and
-        indicate how the received packets are to be treated.
-    keyspace : keyspace or None
-        Keyspace used for packets.  If None a keyspace will be allocated later.
-    weight : int
-        Number of packets expected to represent the signal during a single
-        time-step.
-    latching : bool
-        Indicates that the receiving buffer must *not* be reset every
-        simulation timestep but must hold its value until it next receives a
-        packet. This parameters applies to all sinks.
-    """
-    def __init__(self, source, transmission_parameters, sinks=list(),
-                 keyspace=None, weight=0, latching=False):
-        # Simply store all the parameters
-        self.source = source
-        self.transmission_parameters = transmission_parameters
-        self.sinks = list(sinks)
-        self.keyspace = keyspace
-        self.weight = weight
-        self.latching = latching
-
-
 ObjectPort = collections.namedtuple("ObjectPort", "obj port")
 """Source or sink of a signal.
 

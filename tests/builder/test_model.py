@@ -1,30 +1,6 @@
-import mock
 import numpy as np
+
 from nengo_spinnaker.builder import model
-
-
-class TestSignal(object):
-    """Signal doesn't do too much."""
-    def test_init(self):
-        # Just test creating a Signal
-        source = mock.Mock()
-        transmission_parameters = mock.Mock()
-        sinks = [mock.Mock() for _ in range(3)]
-        keyspace = mock.Mock()
-        weight = 4
-        latching = True
-
-        # Create the signal
-        sig = model.Signal(source, transmission_parameters, sinks, keyspace,
-                           weight, latching)
-
-        # Check parameters made it across correctly
-        assert sig.source is source
-        assert sig.transmission_parameters is transmission_parameters
-        assert sig.sinks is not sinks and sig.sinks == sinks
-        assert sig.keyspace is keyspace
-        assert sig.weight == weight
-        assert sig.latching is latching
 
 
 class TestTransmissionParameters(object):
