@@ -148,28 +148,22 @@ class ConnectionMap(object):
     def get_signals(self):
         """Extract all the signals from the connection map.
 
-        Returns
-        -------
-        [Signal, ...]
-            List of signal objects derived from the contents of the connection
-            map.
+        Yields
+        ------
+        Signal
+            Signal objects derived from the contents of the connection map.
         """
-        # Prepare to store a list of signals
-        signals = list()
-
-        # For each source object and set of sinks create a new signal.
+        # For each source object and set of sinks yield a new signal
         for source, port_conns in iteritems(self._connections):
-            # For each connection look at the sinks and the signal parameters.
+            # For each connection look at the sinks and the signal parameters
             for (sig_pars, _), par_sinks in chain(*itervalues(port_conns)):
-                # Create a new signal and append to the list
-                signals.append(Signal(
+                # Create a signal using these parameters
+                yield Signal(
                     source,
                     (ps.sink_object for ps in par_sinks),  # Extract the sinks
                     sig_pars.keyspace,
                     sig_pars.weight
-                ))
-
-        return signals
+                )
 
 
 class OutputPort(enum.Enum):

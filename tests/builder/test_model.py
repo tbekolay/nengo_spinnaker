@@ -314,7 +314,7 @@ class TestConnectionMap(object):
         )
 
         # Get the signals, this should be a list of two signals
-        signals = cm.get_signals()
+        signals = list(cm.get_signals())
         assert len(signals) == 2
         for signal in signals:
             if signal.source is obj_a:
