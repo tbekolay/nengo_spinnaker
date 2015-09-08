@@ -5,7 +5,8 @@ import struct
 
 from nengo.utils.builder import full_transform
 
-from nengo_spinnaker.builder.builder import InputPort, netlistspec, OutputPort
+from nengo_spinnaker.builder.builder import netlistspec
+from nengo_spinnaker.builder.model import InputPort, OutputPort
 from nengo_spinnaker.regions.filters import make_filter_regions
 from .. import regions
 from nengo_spinnaker.netlist import Vertex

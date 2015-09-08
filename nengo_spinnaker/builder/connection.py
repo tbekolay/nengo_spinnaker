@@ -1,10 +1,8 @@
 import nengo
 from nengo.utils.builder import full_transform
 
-from .builder import (
-    BuiltConnection, InputPort, Model, ObjectPort, OutputPort, spec
-)
-from .model import ReceptionParameters
+from .builder import BuiltConnection, Model, ObjectPort, spec
+from .model import ReceptionParameters, InputPort, OutputPort
 
 
 @Model.source_getters.register(nengo.base.NengoObject)
@@ -19,7 +17,7 @@ def generic_sink_getter(model, conn):
     return spec(ObjectPort(obj, InputPort.standard))
 
 
-@Model.connection_parameter_builders.register(nengo.base.NengoObject)
+# @Model.connection_parameter_builders.register(nengo.base.NengoObject)
 def build_generic_connection_params(model, conn):
     return BuiltConnection(
         decoders=None,
@@ -29,6 +27,7 @@ def build_generic_connection_params(model, conn):
     )
 
 
+@Model.reception_parameter_builders.register(nengo.base.NengoObject)
 def build_generic_reception_params(model, conn):
     """Build parameters necessary for receiving packets that simulate this
     connection.

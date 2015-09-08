@@ -6,7 +6,8 @@ from six import iteritems
 import socket
 import threading
 
-from ..builder.builder import spec, InputPort, OutputPort, ObjectPort
+from ..builder.builder import spec, ObjectPort
+from ..builder.model import InputPort, OutputPort
 from ..builder.node import NodeIOController
 from ..operators import SDPReceiver, SDPTransmitter
 from ..utils import type_casts as tp

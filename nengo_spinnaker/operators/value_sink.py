@@ -2,7 +2,8 @@ import numpy as np
 from rig.machine import Cores, SDRAM
 import struct
 
-from nengo_spinnaker.builder.builder import InputPort, netlistspec
+from nengo_spinnaker.builder.builder import netlistspec
+from nengo_spinnaker.builder.model import InputPort
 from nengo_spinnaker import regions
 from nengo_spinnaker.regions.filters import make_filter_regions
 from nengo_spinnaker.netlist import Vertex

@@ -8,7 +8,8 @@ from nengo.utils.builder import full_transform
 from nengo.utils import numpy as npext
 import numpy as np
 
-from .builder import BuiltConnection, InputPort, Model, ObjectPort, spec
+from .builder import BuiltConnection, Model, ObjectPort, spec
+from .model import InputPort
 from .ports import EnsembleInputPort
 from .. import operators
 from ..utils import collections as collections_ext
@@ -144,7 +145,7 @@ def build_lif(model, ens):
     model.object_operators[ens] = operators.EnsembleLIF(ens)
 
 
-@Model.connection_parameter_builders.register(nengo.Ensemble)
+# @Model.connection_parameter_builders.register(nengo.Ensemble)
 def build_from_ensemble_connection(model, conn):
     """Build the parameters object for a connection from an Ensemble."""
     if conn.solver.weights:
@@ -172,7 +173,7 @@ def build_from_ensemble_connection(model, conn):
     )
 
 
-@Model.connection_parameter_builders.register(nengo.ensemble.Neurons)
+# @Model.connection_parameter_builders.register(nengo.ensemble.Neurons)
 def build_from_neurons_connection(model, conn):
     """Build the parameters object for a connection from Neurons."""
     raise NotImplementedError(

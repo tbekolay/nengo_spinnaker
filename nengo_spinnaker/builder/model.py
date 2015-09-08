@@ -8,18 +8,6 @@ from six import iteritems, itervalues
 from ..utils.collections import counter
 
 
-class OutputPort(enum.Enum):
-    """Indicate the intended transmitting part of an executable."""
-    standard = 0
-    """Standard, value-based, output port."""
-
-
-class InputPort(enum.Enum):
-    """Indicate the intended receiving part of an executable."""
-    standard = 0
-    """Standard, value-based, output port."""
-
-
 class ConnectionMap(object):
     """A container which represents all of the connections in a model and the
     parameters which are associated with them.
@@ -47,7 +35,7 @@ class ConnectionMap(object):
                        transmission_parameters, sink_object, sink_port,
                        reception_parameters):
         """Add a new connection to the map of connections.
-        
+
         Parameters
         ----------
         signal_parameters : :py:class:`~.SignalParameters`
@@ -182,6 +170,18 @@ class ConnectionMap(object):
                 ))
 
         return signals
+
+
+class OutputPort(enum.Enum):
+    """Indicate the intended transmitting part of an executable."""
+    standard = 0
+    """Standard, value-based, output port."""
+
+
+class InputPort(enum.Enum):
+    """Indicate the intended receiving part of an executable."""
+    standard = 0
+    """Standard, value-based, output port."""
 
 
 class SignalParameters(object):

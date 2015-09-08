@@ -2,8 +2,8 @@ import nengo
 import numpy as np
 import threading
 
-from nengo_spinnaker.builder.builder import (
-    InputPort, ObjectPort, OutputPort, spec)
+from nengo_spinnaker.builder.builder import ObjectPort, spec
+from nengo_spinnaker.builder.model import InputPort, OutputPort
 from nengo_spinnaker.operators import Filter, ValueSink, ValueSource
 from nengo_spinnaker.utils.config import getconfig
 
