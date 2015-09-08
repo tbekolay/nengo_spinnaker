@@ -8,6 +8,7 @@ from rig.machine_control.consts import AppState
 from rig.machine import Cores
 import six
 import time
+import warnings
 
 from .builder import Model
 from .node_io import Ethernet
@@ -49,7 +50,7 @@ class Simulator(object):
     def _remove_simulator(cls, simulator):
         cls._open_simulators.remove(simulator)
 
-    def __init__(self, network, dt=0.001, period=10.0):
+    def __init__(self, network, dt=0.001, period=10.0, seed=None):
         """Create a new Simulator with the given network.
 
         Parameters
@@ -58,6 +59,12 @@ class Simulator(object):
             Duration of one period of the simulator. This determines how much
             memory will be allocated to store precomputed and probed data.
         """
+        if len(self._open_simulators) > 0:
+            warnings.warn("Another simulator exists. Closing it.")
+            _close_open_simulators()
+        if seed is not None:
+            warnings.warn("Seed will be ignored.")
+
         # Add this simulator to the set of open simulators
         Simulator._add_simulator(self)
 
@@ -104,6 +111,7 @@ class Simulator(object):
 
         # Holder for probe data
         self.data = {}
+        self.data.update(self.model.params)
 
         # Holder for profiling data
         self.profiler_data = {}
