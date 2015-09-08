@@ -499,3 +499,22 @@ def _make_signal(model, connection, source_spec, sink_spec):
     return Signal(
         source_spec.target, sink_spec.target, keyspace, weight, latching
     )
+
+
+def _make_signal_parameters(connection, source_spec, sink_spec):
+    """Create parameters for a signal using specifications provided by the
+    source and sink.
+
+    Parameters
+    ----------
+    source_spec : spec
+        Signal specification parameters from the source of the signal.
+    sink_spec : spec
+        Signal specification parameters from the sink of the signal.
+
+    Returns
+    -------
+    :py:class:`~.SignalParameters`
+        Description of the signal.
+    """
+    raise NotImplementedError
