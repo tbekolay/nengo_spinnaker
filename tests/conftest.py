@@ -20,10 +20,12 @@ nengo.utils.testing.Recorder.get_filename = get_filename
 
 @pytest.fixture
 def Simulator(request):
-    while len(nengo_spinnaker.simulator.Simulator._open_simulators) > 0:
-        # This shouldn't happen, but does, so we ensure open sims are closed
+    if len(nengo_spinnaker.simulator.Simulator._open_simulators) > 0:
+        # This shouldn't happen, but just in case it does...
         print("Sim still open, closing...", file=sys.stderr)
         nengo_spinnaker.simulator._close_open_simulators()
+        # If something is still open, there's a bigger problem. Bail!
+        assert len(nengo_spinnaker.simulator.Simulator._open_simulators) == 0
     request.addfinalizer(nengo_spinnaker.simulator._close_open_simulators)
     return nengo_spinnaker.simulator.Simulator
 
