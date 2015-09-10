@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import atexit
 import logging
 import nengo
@@ -7,6 +9,7 @@ from rig.machine_control import MachineController
 from rig.machine_control.consts import AppState
 from rig.machine import Cores
 import six
+import sys
 import time
 import warnings
 
@@ -59,12 +62,10 @@ class Simulator(object):
             Duration of one period of the simulator. This determines how much
             memory will be allocated to store precomputed and probed data.
         """
-        if len(self._open_simulators) > 0:
-            warnings.warn("Another simulator exists. Closing it.")
-            _close_open_simulators()
         if seed is not None:
             warnings.warn("Seed will be ignored.")
 
+        self._closed = False  # Whether the simulator has been closed or not
         # Add this simulator to the set of open simulators
         Simulator._add_simulator(self)
 
@@ -105,7 +106,6 @@ class Simulator(object):
 
         self.model.decoder_cache.shrink()
         self.dt = self.model.dt
-        self._closed = False  # Whether the simulator has been closed or not
 
         self.host_sim = self._create_host_sim()
 
@@ -328,5 +328,6 @@ def _close_open_simulators():
         # Ignore any errors which may occur during this shut-down process.
         try:
             sim.close()
-        except:
-            pass
+        except Exception as e:
+            # But print them for debugging purposes
+            print(str(e), file=sys.stderr)

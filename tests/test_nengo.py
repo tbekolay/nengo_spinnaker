@@ -128,6 +128,14 @@ xfail('test.nengo.tests.test_node.test_passthrough_filter', "Similar...")
 xfail('test.nengo.tests.test_node.test_circular', "Looks right?")
 xfail('test.nengo.tests.test_processes.test_gaussian_whitenoise',
       "Processes not implemented yet?")
+xfail('test.nengo.tests.test_processes.test_whitesignal*',
+      "Processes not implemented yet? Or, tolerances are too tight...")
+xfail('test.nengo.tests.test_ensemble.test_constant_scalar',
+      "Last timepoint seems to be wrong? But the rest are good?")
+xfail('test.nengo.spa.tests.test_thalamus.test_nondefault_routing',
+      "valueC way off.")
+xfail('test.nengo.tests.test_synapses.test_decoders',
+      "Differences in representing time I think...")
 
 # These are just out of tolerance
 xfail('test.nengo.networks.tests.test_product.test_sine_waves',

@@ -1,11 +1,14 @@
+from __future__ import print_function
+
 import fnmatch
 import os
+import sys
 
 import nengo
 from nengo.tests.conftest import *
 from nengo.utils.testing import find_modules, allclose, load_functions
 
-import nengo_spinnaker
+import nengo_spinnaker.simulator
 
 
 # A monkey patch hack to solve a problem in Nengo master
@@ -16,8 +19,13 @@ nengo.utils.testing.Recorder.get_filename = get_filename
 
 
 @pytest.fixture
-def Simulator():
-    return nengo_spinnaker.Simulator
+def Simulator(request):
+    while len(nengo_spinnaker.simulator.Simulator._open_simulators) > 0:
+        # This shouldn't happen, but does, so we ensure open sims are closed
+        print("Sim still open, closing...", file=sys.stderr)
+        nengo_spinnaker.simulator._close_open_simulators()
+    request.addfinalizer(nengo_spinnaker.simulator._close_open_simulators)
+    return nengo_spinnaker.simulator.Simulator
 
 
 def pytest_generate_tests(metafunc):
