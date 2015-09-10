@@ -30,6 +30,11 @@ def Simulator(request):
     return nengo_spinnaker.simulator.Simulator
 
 
+def pytest_runtest_setup(item):
+    if not item.config.getvalue("nengo") and "Simulator" in item.funcargnames:
+        pytest.skip("Nengo tests not requested.")
+
+
 def pytest_generate_tests(metafunc):
     if "nl" in metafunc.funcargnames:
         metafunc.parametrize("nl", [nengo.LIF])
